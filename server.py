@@ -291,8 +291,11 @@ def _render(obj, vars):
 
 def load_jev(name):
     if name not in _jev_cache:
-        with open(HERE / "prompt_engineering" / "jev" / name / "command.json") as f:
-            _jev_cache[name] = json.load(f)
+        try:
+            with open(HERE / "prompt_engineering" / "jev" / name / "command.json") as f:
+                _jev_cache[name] = json.load(f)
+        except Exception as e:
+            raise RuntimeError(f"jev command {name} unreadable: {e}") from e
     return _jev_cache[name]
 
 def _jev_mock_answers(state, questions):
@@ -470,7 +473,7 @@ def do_sweep(run_id):
                 (f"News sweep {time.strftime('%H:%M')}", cards or "<p>nothing new</p>", "agent", time.time(), time.time()))
         phase("present", f"{len(top)} cards on page {pid}")
         return finish(run_id, tt["id"], "completed")
-    except RuntimeError as e:
+    except Exception as e:  # a sweep must fail its run, never strand it running
         audit(run_id, "sweep_failed", str(e))
         if run["mode"] == "out":
             audit(run_id, "alert", f"out-of-loop sweep failure: {e}")

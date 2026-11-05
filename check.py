@@ -290,6 +290,8 @@ def main():
     assert out.returncode == 0 and json.loads(out.stdout)["task_type"]["mode"] == "in", out.stderr
     print("factory init ok")
 
+    assert "prompt_engineering" in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "Dockerfile")).read(), \
+        "Dockerfile must ship prompt_engineering/ or live sweeps cannot load Jev commands"
     # 8. Leaving the loop: triggers, real-Jev sweep (labelled mock), flywheel, incident, CLI
     run = call("POST", f"/api/triggers/{tt2['id']}", {"input": "via webhook"}, 201)
     r = wait_run(run["id"], "completed")
