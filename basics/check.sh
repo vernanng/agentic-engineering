@@ -94,9 +94,9 @@ else
   fail "websockets syntax" "py_compile failed"
 fi
 
-# 7. Loop app (own end-to-end check, stdlib only)
-out=$(python3 loop-app/check.py 2>&1) && echo "$out" | grep -q "ALL CHECKS PASSED" \
-  && pass "loop-app/check.py" || fail "loop-app/check.py" "$(echo "$out" | tail -n 5)"
+# 7. Loop app (real app at repo root; basics/loop-app is learns only)
+out=$(python3 ../check.py 2>&1) && echo "$out" | grep -q "ALL CHECKS PASSED" \
+  && pass "loop-app (root check.py)" || fail "loop-app (root check.py)" "$(echo "$out" | tail -n 5)"
 
 # 8. MD3 demo page (static; verify roles present)
 grep -q "primary" md3/demo.html && grep -q "surface" md3/demo.html \

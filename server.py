@@ -9,8 +9,9 @@ from pathlib import Path
 HERE = Path(__file__).parent
 DB = os.environ.get("LOOP_DB", str(HERE / "loop.db"))
 CONF_THRESHOLD = 0.7
-RUN_TIMEOUT_S = 60          # out-of-loop guardrail
-MAX_RETRIES = 1             # out-of-loop guardrail
+RUN_TIMEOUT_S = 60          # run + decision-wait guardrail
+MAX_BODY = 1_000_000
+LOOP_TOKEN = os.environ.get("LOOP_TOKEN", "")  # if set, /api needs X-Loop-Token; unset = localhost dev only
 PROMOTE_AFTER = {"in": 3, "near": 5}   # consecutive successes to earn promotion
 MODES = ["in", "near", "out"]
 
@@ -22,6 +23,7 @@ TEMPLATES = {
     "report": [("outline", 0.95, False), ("write draft", 0.92, False), ("publish", 0.88, True)],
 }
 
+# shortcut: one connection + lock serialises all runs, upgrade to per-thread connections when parallel out runs matter
 db_lock = threading.Lock()
 db = sqlite3.connect(DB, check_same_thread=False)
 db.row_factory = sqlite3.Row
@@ -46,6 +48,10 @@ def init_db():
         """)
         for name in TEMPLATES:
             db.execute("INSERT OR IGNORE INTO task_types(name,template) VALUES(?,?)", (name, name))
+        # No runner threads survive a restart; stale live runs can never finish.
+        db.execute("UPDATE runs SET status='killed',finished_at=strftime('%s','now') "
+                   "WHERE status IN ('queued','running','awaiting_decision','paused')")
+        db.execute("UPDATE steps SET status='rejected' WHERE status IN ('pending','awaiting_decision')")
 
 def q(sql, args=(), one=False):
     with db_lock:
@@ -82,18 +88,20 @@ def wait_decision(run_id, step_id, reason):
     x("UPDATE steps SET status='awaiting_decision',pause_reason=? WHERE id=?", (reason, step_id))
     x("UPDATE runs SET status='awaiting_decision' WHERE id=?", (run_id,))
     audit(run_id, "paused", f"step {step_id}: {reason}")
+    deadline = time.time() + RUN_TIMEOUT_S
     while True:
         c["wake"].wait(0.1)
-        if c["kill"]:
+        if c["kill"] or time.time() > deadline:
             return {"action": "kill"}
         if c["decision"]:
             return c["decision"]
 
 def wait_if_paused(run_id):
     c = ctrl(run_id)
-    while c["paused"] and not c["kill"]:
+    if c["paused"] and not c["kill"]:
         x("UPDATE runs SET status='paused' WHERE id=?", (run_id,))
-        time.sleep(0.05)
+        while c["paused"] and not c["kill"]:
+            time.sleep(0.05)
     if not c["kill"]:
         x("UPDATE runs SET status='running' WHERE id=?", (run_id,))
 
@@ -179,12 +187,22 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def authorized(self):
+        if not LOOP_TOKEN:
+            return True
+        return self.headers.get("X-Loop-Token") == LOOP_TOKEN or \
+            self.headers.get("Authorization") == f"Bearer {LOOP_TOKEN}"
+
     def body(self):
         n = int(self.headers.get("Content-Length") or 0)
+        if n < 0 or n > MAX_BODY:
+            raise ValueError("body too large")
         return json.loads(self.rfile.read(n) or b"{}")
 
     def do_GET(self):
         parts = [p for p in self.path.split("?")[0].split("/") if p]
+        if parts[:1] == ["api"] and not self.authorized():
+            return self.send_json(401, {"error": "unauthorized"})
         if not parts:
             page = (HERE / "static" / "index.html").read_bytes()
             self.send_response(200)
@@ -208,7 +226,14 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parts = [p for p in self.path.split("/") if p]
-        data = self.body()
+        if parts[:1] == ["api"] and not self.authorized():
+            return self.send_json(401, {"error": "unauthorized"})
+        try:
+            data = self.body()
+        except ValueError:
+            return self.send_json(400, {"error": "invalid JSON or Content-Length"})
+        if not isinstance(data, dict):
+            return self.send_json(400, {"error": "JSON object required"})
         if parts == ["api", "task-types"]:
             name, template = data.get("name", "").strip(), data.get("template", "summarize")
             if not name or template not in TEMPLATES:

@@ -1,6 +1,8 @@
-# Loop App
+# Loop App (learns)
 
 A task earns autonomy: **in-the-loop >> near-the-loop >> out-of-the-loop**.
+
+The runnable app now lives at the repo root — this folder is learns only (concepts, no duplicate code).
 
 | Mode | Behaviour |
 |---|---|
@@ -16,24 +18,11 @@ Promotion is earned, not automatic: 3 consecutive successful runs in `in` (5 in 
 - [near-the-loop/](near-the-loop/README.md) — auto, pauses on exceptions, pause/resume/kill.
 - [out-of-the-loop/](out-of-the-loop/README.md) — fully automatic, guardrails, alert + demotion on failure.
 
-## Run
+## Run the real app
 
 ```bash
-cd basics/loop-app
-python3 server.py          # http://localhost:8000  (stdlib only, nothing to install)
-python3 check.py           # end-to-end check of all three modes + promotion
+python3 server.py          # from repo root: http://localhost:8000  (stdlib only)
+python3 check.py           # from repo root: end-to-end check of all three modes + promotion
 ```
 
-Docker:
-
-```bash
-cd basics/loop-app && docker build -t loop-app . && docker run --rm -p 8000:8000 -v loop-data:/data loop-app
-```
-
-Try it: submit a `summarize` run (in-the-loop, approve each step), switch `classify` to near and watch it pause on low confidence and the risky step, then put any task in out and add `FAIL` to the input to see the alert and demotion.
-
-## Add a real task
-
-Edit `TEMPLATES` in [server.py](server.py) (steps are `name, confidence, risky`) and replace `run_step()` with a real LLM/tool call keeping the same signature: `(step_name, text, confidence) -> (output, confidence)`, raising on failure. The loop, audit, and promotion logic do not change.
-
-State is one SQLite file (`loop.db`, or `LOOP_DB`). Demo outputs are canned on purpose — the loop mechanics are the product here.
+See the root [README.md](../../README.md) and [server.py](../../server.py). Edit `TEMPLATES` / `run_step()` there — do not recreate code in this learns folder.

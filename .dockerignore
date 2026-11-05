@@ -1,0 +1,6 @@
+basics/
+.git/
+loop.db
+*.db
+__pycache__/
+.venv/

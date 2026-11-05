@@ -83,7 +83,7 @@ def main():
     print("ALL CHECKS PASSED")
 
 if __name__ == "__main__":
-    env = {**os.environ, "PORT": "18099", "LOOP_DB": tempfile.mktemp(suffix=".db")}
+    env = {**os.environ, "PORT": "18099", "LOOP_DB": tempfile.NamedTemporaryFile(suffix=".db", delete=False).name}
     srv = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "server.py")], env=env)
     try:
         for _ in range(50):
