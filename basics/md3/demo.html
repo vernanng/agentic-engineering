@@ -1,0 +1,110 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MD3 Basics Demo</title>
+<style>
+  :root{
+    --primary:#6750a4; --on-primary:#fff; --primary-container:#eaddff; --on-primary-container:#21005d;
+    --secondary-container:#e8def8; --on-secondary-container:#1d192b;
+    --tertiary-container:#ffd8e4; --on-tertiary-container:#31111d;
+    --surface:#fef7ff; --surface-variant:#e7e0ec; --on-surface:#1d1b20; --on-surface-variant:#49454f;
+    --outline:#79747e; --error:#b3261e; --on-error:#fff;
+    --card:#f7f2fa;
+  }
+  [data-theme="dark"]{
+    --primary:#d0bcff; --on-primary:#381e72; --primary-container:#4f378b; --on-primary-container:#eaddff;
+    --secondary-container:#4a4458; --on-secondary-container:#e8def8;
+    --tertiary-container:#633b48; --on-tertiary-container:#ffd8e4;
+    --surface:#141218; --surface-variant:#49454f; --on-surface:#e6e0e9; --on-surface-variant:#cac4d0;
+    --outline:#938f99; --error:#f2b8b5; --on-error:#601410;
+    --card:#211f26;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Roboto,system-ui,sans-serif;background:var(--surface);color:var(--on-surface)}
+  main{max-width:840px;margin:0 auto;padding:24px 16px 96px}
+  section{margin:32px 0}
+  h1{font-size:2rem;font-weight:400;margin:.2em 0}
+  .body-m{font-size:.9rem;line-height:1.5;color:var(--on-surface-variant)}
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .swatch{border-radius:12px;padding:14px 12px;font-size:.8rem;min-height:64px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;font-size:.9rem;border-radius:999px;padding:10px 20px;border:0;cursor:pointer}
+  .filled{background:var(--primary);color:var(--on-primary)}
+  .tonal{background:var(--secondary-container);color:var(--on-secondary-container)}
+  .outlined{background:transparent;color:var(--primary);border:1px solid var(--outline)}
+  .textbtn{background:transparent;color:var(--primary)}
+  .card{background:var(--card);border-radius:12px;padding:16px;margin:8px 0}
+  .chip{border:1px solid var(--outline);background:transparent;color:var(--on-surface);border-radius:8px;padding:6px 14px}
+  .chip.on{background:var(--secondary-container);border-color:transparent}
+  .fab{position:fixed;right:20px;bottom:88px;width:56px;height:56px;border-radius:16px;
+       background:var(--primary-container);color:var(--on-primary-container);font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+  nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface-variant);display:flex;justify-content:space-around;padding:10px 0}
+  nav span{font-size:.75rem;text-align:center;color:var(--on-surface-variant)}
+  nav span.on{color:var(--on-surface);font-weight:700}
+  .shape{display:inline-block;width:56px;height:56px;background:var(--primary-container);margin:4px;vertical-align:middle}
+  .switch{position:relative;width:52px;height:32px;appearance:none;background:var(--surface-variant);
+          border:2px solid var(--outline);border-radius:999px;cursor:pointer;vertical-align:middle}
+  .switch:checked{background:var(--primary);border-color:var(--primary)}
+  .switch::after{content:"";position:absolute;top:6px;left:6px;width:16px;height:16px;border-radius:50%;background:var(--outline)}
+  .switch:checked::after{left:26px;background:var(--on-primary)}
+  .err{background:var(--error);color:var(--on-error);border-radius:12px;padding:12px 16px}
+  .display{font-size:2.6rem}.headline{font-size:1.6rem}.title{font-size:1.15rem;font-weight:600}.label{font-size:.85rem;font-weight:600}
+</style>
+
+<main>
+  <p class="label" style="color:var(--primary)">MATERIAL DESIGN 3</p>
+  <h1>MD3 Basics Demo</h1>
+  <p class="body-m">Colour roles, type scale, shape scale and standard components in plain CSS variables.
+     The switch toggles the same roles to their dark values — no component changes.</p>
+  <p><label>Dark theme <input type="checkbox" class="switch" id="theme"></label></p>
+
+  <section><h2 class="headline">1 · Colour roles</h2>
+    <div class="swatches">
+      <div class="swatch" style="background:var(--primary);color:var(--on-primary)">primary<br>on-primary text</div>
+      <div class="swatch" style="background:var(--primary-container);color:var(--on-primary-container)">primary-container</div>
+      <div class="swatch" style="background:var(--secondary-container);color:var(--on-secondary-container)">secondary-container</div>
+      <div class="swatch" style="background:var(--tertiary-container);color:var(--on-tertiary-container)">tertiary-container</div>
+      <div class="swatch" style="background:var(--surface-variant);color:var(--on-surface)">surface-variant</div>
+      <div class="swatch" style="border:1px solid var(--outline);color:var(--on-surface-variant)">outline border</div>
+    </div>
+    <p class="err">error / on-error: something failed, here is what to do.</p>
+  </section>
+
+  <section><h2 class="headline">2 · Type scale</h2>
+    <div class="display">Display</div><div class="headline">Headline</div>
+    <div class="title">Title — card and dialog headings</div>
+    <p class="body-m">Body — default paragraph text, body-medium. Readable first, sized by the scale, not by eye.</p>
+    <div class="label">Label — buttons, chips, captions</div>
+  </section>
+
+  <section><h2 class="headline">3 · Shape scale</h2>
+    <span class="shape" style="border-radius:0"></span> 0
+    <span class="shape" style="border-radius:8px"></span> 8dp small
+    <span class="shape" style="border-radius:12px"></span> 12dp medium
+    <span class="shape" style="border-radius:28px"></span> 28dp extra-large
+    <span class="shape" style="border-radius:999px"></span> full
+  </section>
+
+  <section><h2 class="headline">4 · Components</h2>
+    <div class="row">
+      <button class="filled">Filled</button><button class="tonal">Tonal</button>
+      <button class="outlined">Outlined</button><button class="textbtn">Text</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="chip on">Chip on</button><button class="chip">Chip</button><button class="chip">Chip</button>
+      <label>Switch <input type="checkbox" class="switch" checked></label>
+    </div>
+    <div class="card"><div class="title">Card (medium shape, surface tone)</div>
+      <p class="body-m">Grouped content lives in cards. Elevation here is tone, not shadow.</p>
+      <button class="textbtn">Text action</button><button class="filled">Filled action</button>
+    </div>
+  </section>
+</main>
+
+<button class="fab" title="Primary action">+</button>
+<nav><span class="on">⌂<br>Home</span><span>◎<br>Explore</span><span>▤<br>Library</span><span>☰<br>More</span></nav>
+
+<script>
+  document.getElementById("theme").addEventListener("change", e =>
+    document.documentElement.dataset.theme = e.target.checked ? "dark" : "");
+</script>

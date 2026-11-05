@@ -20,6 +20,7 @@ Six topics. The first four are tools; REST and WebSocket are ways for programs t
 - [rest/](rest/README.md) — how clients fetch and change data on a server. Needed for almost any web app.
 - [websockets/](websockets/README.md) — live, two-way updates. Only needed when the server must push (chat, live feeds, games).
 - [loop-app/](loop-app/README.md) — runnable app built from the above: a task earns autonomy, in-the-loop >> near-the-loop >> out-of-the-loop.
+- [md3/](md3/README.md) — Material Design 3: colour roles, type/shape scales, and standard components, with a demo page.
 
 ## How they combine
 
