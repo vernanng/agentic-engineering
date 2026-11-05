@@ -48,9 +48,4 @@ See [Dockerfile](Dockerfile) and [compose.yaml](compose.yaml). Try:
 cd basics/docker && docker build -t basics-python . && docker run --rm basics-python
 ```
 
-> **From the official docs:** Docker Docs define a container image as “a standardized package that includes all of the files, binaries, libraries, and configurations to run a container” — images are immutable and become containers at runtime. That image→container flow is the model for the commands and `Dockerfile` above.
-
-## Sources
-
-- [What is an image? — Docker Docs](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/) — image contents, layers, and image→container semantics.
-- [Get started — Docker Docs](https://docs.docker.com/get-started/) — build, run, Compose, and registries.
+Official docs: [What is an image?](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/) · [Get started](https://docs.docker.com/get-started/)

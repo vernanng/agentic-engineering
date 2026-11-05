@@ -48,8 +48,4 @@ Key ideas:
 
 See [hello.ts](hello.ts).
 
-> **From the official docs:** The TypeScript Handbook frames TypeScript as adding a **static typechecker** on top of JavaScript — types describe shapes, of values, catch bugs before running, and are checked ahead of execution; the compiled output is plain JavaScript that runs anywhere JavaScript runs. That is the model used for `interface`/`type` and narrowing above.
-
-## Sources
-
-- [The TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html) — static checking, type shapes, and JavaScript compatibility; see also [The Basics](https://www.typescriptlang.org/docs/handbook/2/basic-types.html).
+Official docs: [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)

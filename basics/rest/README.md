@@ -41,9 +41,4 @@ Almost always, if a frontend, mobile app, or another service needs your data. CR
 
 See [api.py](api.py): a zero-dependency server. Run `python3 api.py`, then curl it.
 
-> **From the official docs:** REST has no single vendor spec — it is an architectural style (Fielding, 2000) realised over HTTP. The wire behaviour above (methods, status codes, stateless request/response) is defined by HTTP Semantics: method definitions and status-code classes in RFC 9110 §§9 and 15. The method table here follows those definitions.
-
-## Sources
-
-- [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html) — §9 (methods) and §15 (status codes); REST itself: Fielding, *Architectural Styles*, ch. 5.
-- [HTTP — MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/HTTP) — practical method/status reference.
+Official docs: [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html) · [MDN HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP)
