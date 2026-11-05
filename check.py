@@ -63,6 +63,57 @@ def test_openrouter_mocked():
         pass
     print("openrouter mock ok")
 
+def test_jev_wire_and_resume():
+    """Real-Jev wire shape with a fake HTTP layer + queued-run resume. No spend."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import server
+    server.init_db()
+    server.OPENROUTER_API_KEY = "test-key"
+    seen = {}
+    class _Resp:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def read(self): return json.dumps({"model": "jev-test",
+            "answers": {"worth": {"type": "noul", "noul": 0.9}},
+            "usage": {"input_tokens": 1000}}).encode()
+    def fake_open(req, timeout=None):
+        seen["url"] = req.full_url
+        seen["model"] = json.loads(req.data)["model"]
+        return _Resp()
+    with mock.patch.object(server.urllib.request, "urlopen", fake_open):
+        out = server.jev_classify({"text": "x"}, {"worth": {"type": "noul", "instructions": "worth it?"}})
+        assert out["worth"]["noul"] == 0.9 and seen["url"].endswith("/api/alpha/decisions"), seen
+        assert seen["model"] == "~typesafe/jev-latest", seen
+    calls = {"n": 0}
+    def flaky_open(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise urllib.error.HTTPError(req.full_url, 503, "busy", {}, None)
+        return _Resp()
+    with mock.patch.object(server.urllib.request, "urlopen", flaky_open):
+        assert server.jev_classify({"text": "x"}, {"worth": {"type": "noul", "instructions": "?"}})["worth"]["noul"] == 0.9
+        assert calls["n"] == 2, calls
+    saved = server.OPENROUTER_API_KEY
+    server.OPENROUTER_API_KEY = ""  # fail closed, never silently fake
+    try:
+        server.jev_classify({"text": "x"}, {"worth": {"type": "noul", "instructions": "?"}}); raise AssertionError("expected RuntimeError")
+    except RuntimeError:
+        pass
+    finally:
+        server.OPENROUTER_API_KEY = saved
+    # resume: a queued run starts on boot; done steps are checkpoints (none here)
+    server.init_db()
+    tt = server.q("SELECT * FROM task_types WHERE name='summarize'", one=True)
+    rid = server.x("INSERT INTO runs(task_type_id,input,mode,status,created_at) VALUES(?,?,?,'queued',?)",
+                   (tt["id"], "resume me", tt["mode"], time.time()))
+    server.resume_queued()
+    end = time.time() + 8
+    while time.time() < end:
+        if server.q("SELECT status FROM runs WHERE id=?", (rid,), one=True)["status"] == "awaiting_decision": break
+        time.sleep(0.15)
+    assert server.q("SELECT status FROM runs WHERE id=?", (rid,), one=True)["status"] == "awaiting_decision"
+    print("jev wire + resume ok")
+
 def main():
     types = {t["name"]: t for t in call("GET", "/api/task-types")}
     call("POST", "/api/task-types", {"name": "check-badmode", "template": "summarize", "mode": "bogus"}, 400)
@@ -221,12 +272,65 @@ def main():
                          capture_output=True, text=True, timeout=15)
     assert out.returncode == 0 and json.loads(out.stdout)["task_type"]["mode"] == "in", out.stderr
     print("factory init ok")
+
+    # 8. Leaving the loop: triggers, real-Jev sweep (labelled mock), flywheel, incident, CLI
+    run = call("POST", f"/api/triggers/{tt2['id']}", {"input": "via webhook"}, 201)
+    r = wait_run(run["id"], "completed")
+    assert any(a["event"] == "trigger_fired" and "webhook" in (a["detail"] or "") for a in r["audit"]), r["audit"]
+    print("webhook trigger ok")
+
+    tti = call("POST", "/api/task-types", {"name": "check-incident", "template": "incident", "mode": "near"}, 201)
+    ev = call("POST", "/api/events", {"status": 503, "message": "db pool exhausted", "task_type_id": tti["id"]}, 201)
+    assert ev["started"] is True, ev
+    r = wait_run(ev["run"]["id"], "awaiting_decision")
+    assert r["steps"][-1]["name"] == "apply fix" and "risky" in (r["steps"][-1]["pause_reason"] or ""), r["steps"]
+    call("POST", f"/api/runs/{ev['run']['id']}/decide", {"action": "approve"}, 200)
+    wait_run(ev["run"]["id"], "completed")
+    ev2 = call("POST", "/api/events", {"status": 200, "message": "routine health ping", "task_type_id": tti["id"]}, 200)
+    assert ev2["started"] is False, ev2  # Jev relevance gates it, no incident started
+    print("incident ok")
+
+    ttn = call("POST", "/api/task-types", {"name": "check-news", "template": "news", "mode": "near"}, 201)
+    good = call("POST", "/api/items", {"title": "Agent framework release v2 available now",
+        "body": "The agent model release v2 is available now with a new flag.", "source": "wire-a"}, 201)
+    call("POST", "/api/items", {"title": "Agent framework release v2 available now",
+        "body": "The agent model release v2 is available now with a new flag.", "source": "wire-a"}, 200)  # hash dupe folds at ingest
+    bad = call("POST", "/api/items", {"title": "Celebrity giveaway scandal shocks fans",
+        "body": "A celebrity giveaway scandal with no engineering content.", "source": "wire-b"}, 201)
+    run = call("POST", "/api/runs", {"task_type_id": ttn["id"], "input": "sweep"}, 201)
+    wait_run(run["id"], "completed")
+    items = {i["id"]: i for i in call("GET", "/api/items")}
+    assert items[good["id"]]["status"] == "presented" and items[good["id"]]["signal"] is not None, items[good["id"]]
+    assert items[bad["id"]]["status"] == "gated", items[bad["id"]]  # Jev relevance stopped it before any card
+    assert len(call("GET", "/api/items?status=presented")) <= 7
+    ex = call("GET", "/api/executions")
+    assert ex["jev_calls"] > 0 and ex["jev_mock_calls"] == ex["jev_calls"], ex  # gate uses the labelled mock only
+    print("news sweep ok")
+
+    before = {w["key"]: w["weight"] for w in call("GET", "/api/weights") if w["kind"] == "source"}
+    call("POST", f"/api/items/{good['id']}/vote", {"vote": "up"}, 200)
+    after = {w["key"]: w["weight"] for w in call("GET", "/api/weights") if w["kind"] == "source"}
+    assert after.get("wire-a", 1.0) > before.get("wire-a", 1.0), (before, after)  # votes move weights
+    call("POST", f"/api/items/{good['id']}/vote", {"vote": "down"}, 200)
+    assert all(i["id"] != good["id"] for i in call("GET", "/api/items?status=presented"))
+    print("flywheel ok")
+
+    env = {**os.environ, "LOOP_URL": BASE}
+    out = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "client.py"),
+                          "--json", "status"], env=env, capture_output=True, text=True, timeout=15)
+    assert out.returncode == 0 and "agents_working_now" in json.loads(out.stdout), out.stderr
+    out = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "client.py"),
+                          "--json", "feed"], env=env, capture_output=True, text=True, timeout=15)
+    assert out.returncode == 0 and isinstance(json.loads(out.stdout), list), out.stderr
+    print("cli ok")
     print("ALL CHECKS PASSED")
 
 if __name__ == "__main__":
     test_openrouter_mocked()
+    test_jev_wire_and_resume()
     env = {k: v for k, v in os.environ.items() if k != "OPENROUTER_API_KEY"}  # gate never spends
-    env.update({"PORT": "18099", "LOOP_DB": tempfile.NamedTemporaryFile(suffix=".db", delete=False).name})
+    env.update({"PORT": "18099", "LOOP_DB": tempfile.NamedTemporaryFile(suffix=".db", delete=False).name,
+                "JEV_MOCK": "1"})  # labelled mock in the gate; the real wire is unit-tested above
     srv = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "server.py")], env=env)
     try:
         for _ in range(50):

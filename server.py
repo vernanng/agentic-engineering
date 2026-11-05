@@ -2,7 +2,8 @@
 
 Stdlib only. Run: python3 server.py  (PORT env, default 8000, DB env LOOP_DB)
 """
-import json, os, sqlite3, sys, threading, time, urllib.request, urllib.error
+import hashlib, json, os, re, sqlite3, sys, threading, time, urllib.request, urllib.error
+import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -24,6 +25,12 @@ TEMPLATES = {
     "summarize": [("draft summary", 0.95, False), ("extract key points", 0.90, False)],
     "classify": [("triage ticket", 0.55, False), ("assign team", 0.90, True)],
     "report": [("outline", 0.95, False), ("write draft", 0.92, False), ("publish", 0.88, True)],
+    # Incident: Detect -> Triage -> Patch -> Ask (risky apply in near) -> Verify.
+    "incident": [("detect", 0.95, False), ("triage", 0.90, False), ("prepare fix", 0.85, False),
+                 ("apply fix", 0.80, True), ("verify", 0.90, False)],
+    # News sweep phases are deterministic (do_sweep), not per-step model calls.
+    "news": [("gather", 0.95, False), ("gate", 0.95, False), ("dedupe", 0.95, False),
+             ("rank", 0.95, False), ("present", 0.95, False)],
 }
 
 # Tiny Software Factory harness: an agent is a composition of capability
@@ -36,11 +43,16 @@ SLICES = {
 }
 THINKING_LEVELS = ["low", "medium", "high", "max"]
 
+JEV_MODEL = os.environ.get("JEV_MODEL", "~typesafe/jev-latest")
+JEV_MOCK = os.environ.get("JEV_MOCK", "") == "1"  # explicit dev mock, always labelled mock
+JEV_PRICE_PER_M = 0.042  # OpenRouter catalog price for jev input tokens, output free
+
 def default_config():
     return {"model": OPENROUTER_MODEL, "escalation_model": OPENROUTER_ESCALATION_MODEL,
             "max_tokens": OPENROUTER_MAX_TOKENS, "conf_threshold": CONF_THRESHOLD,
             "system_prompt": "", "thinking_level": "medium",
-            "enabled_slices": list(SLICES), "context_limit": 4000}
+            "enabled_slices": list(SLICES), "context_limit": 4000,
+            "jev_model": JEV_MODEL, "news_sources": []}
 
 def validate_config_patch(patch):
     """Return a cleaned partial config, or raise ValueError."""
@@ -61,6 +73,10 @@ def validate_config_patch(patch):
             if not isinstance(v, list) or not v or not all(s in SLICES for s in v): raise ValueError("enabled_slices must be a non-empty subset of factory|coding|pages|factory-controls")
         elif k == "context_limit":
             if not isinstance(v, int) or isinstance(v, bool) or not 100 <= v <= 100000: raise ValueError("context_limit must be 100..100000")
+        elif k == "jev_model":
+            if not isinstance(v, str) or not v: raise ValueError("jev_model must be a non-empty string")
+        elif k == "news_sources":
+            if not isinstance(v, list) or not all(isinstance(u, str) for u in v): raise ValueError("news_sources must be a list of URL strings")
         else:
             raise ValueError(f"unknown config key: {k}")
         out[k] = v
@@ -93,6 +109,14 @@ TOOLS = [
     {"name": "decide_proposal", "method": "POST", "path": "/api/proposals/:id/decide", "ui": "proposal Approve / Reject"},
     {"name": "create_factory", "method": "POST", "path": "/api/factories", "ui": "factory init form / --init-factory CLI"},
     {"name": "list_tools", "method": "GET", "path": "/api/tools", "ui": "agent panel tools"},
+    {"name": "trigger_webhook", "method": "POST", "path": "/api/triggers/:task_type_id", "ui": "webhook (no UI control — external trigger)"},
+    {"name": "ingest_event", "method": "POST", "path": "/api/events", "ui": "log-event stream (external trigger)"},
+    {"name": "ingest_item", "method": "POST", "path": "/api/items", "ui": "news gather (sweep also fetches sources)"},
+    {"name": "list_items", "method": "GET", "path": "/api/items", "ui": "news feed"},
+    {"name": "vote_item", "method": "POST", "path": "/api/items/:id/vote", "ui": "card up/down vote"},
+    {"name": "list_weights", "method": "GET", "path": "/api/weights", "ui": "taste weights"},
+    {"name": "set_weight", "method": "POST", "path": "/api/weights", "ui": "taste weight editor"},
+    {"name": "executions", "method": "GET", "path": "/api/executions", "ui": "agent panel executions"},
 ]
 
 # shortcut: one connection + lock serialises all runs, upgrade to per-thread connections when parallel out runs matter
@@ -127,14 +151,28 @@ def init_db():
         CREATE TABLE IF NOT EXISTS proposals(
           id INTEGER PRIMARY KEY, task_type_id INTEGER, config TEXT, status TEXT,
           created_at REAL);
+        CREATE TABLE IF NOT EXISTS items(
+          id INTEGER PRIMARY KEY, title TEXT, url TEXT, body TEXT, source TEXT, hash TEXT UNIQUE,
+          hype REAL, facts REAL, signal REAL, importance REAL, status TEXT, created_at REAL);
+        CREATE TABLE IF NOT EXISTS weights(kind TEXT, key TEXT, weight REAL, PRIMARY KEY(kind, key));
+        CREATE TABLE IF NOT EXISTS jev_calls(
+          id INTEGER PRIMARY KEY, run_id INTEGER, command TEXT, model TEXT,
+          input_tokens INTEGER, cost REAL, mock INTEGER, created_at REAL);
         """)
+        for col, ddl in (("tokens", "ALTER TABLE steps ADD COLUMN tokens INTEGER DEFAULT 0"),
+                         ("cost", "ALTER TABLE steps ADD COLUMN cost REAL DEFAULT 0")):
+            try: db.execute(ddl)
+            except Exception: pass  # column already present
+        for topic in ("agent", "model", "release"):
+            db.execute("INSERT OR IGNORE INTO weights(kind,key,weight) VALUES('topic',?,1.0)", (topic,))
         db.execute("INSERT OR IGNORE INTO settings(id,config) VALUES(1,?)",
                    (json.dumps(default_config()),))
         for name in TEMPLATES:
             db.execute("INSERT OR IGNORE INTO task_types(name,template) VALUES(?,?)", (name, name))
-        # No runner threads survive a restart; stale live runs can never finish.
+        # Durability: queued runs resume on boot (resume_queued); runs that
+        # were mid-flight can never finish and are killed, done steps stay done.
         db.execute("UPDATE runs SET status='killed',finished_at=strftime('%s','now') "
-                   "WHERE status IN ('queued','running','awaiting_decision','paused')")
+                   "WHERE status IN ('running','awaiting_decision','paused')")
         db.execute("UPDATE steps SET status='rejected' WHERE status IN ('pending','awaiting_decision')")
 
 def q(sql, args=(), one=False):
@@ -171,7 +209,7 @@ def start_run(tt, text):
     rid = x("INSERT INTO runs(task_type_id,input,mode,status,created_at) VALUES(?,?,?,'queued',?)",
             (tt["id"], text, tt["mode"], time.time()))
     audit(rid, "run_created", f"task={tt['name']} mode={tt['mode']}")
-    threading.Thread(target=runner, args=(rid,), daemon=True).start()
+    threading.Thread(target=sweep_runner if tt["template"] == "news" else runner, args=(rid,), daemon=True).start()
     return q("SELECT * FROM runs WHERE id=?", (rid,), one=True)
 
 # shortcut: cron lives in this process and dies with it; next_run_at is
@@ -187,7 +225,7 @@ def cron_loop():
                 tt = q("SELECT * FROM task_types WHERE id=?", (cron["task_type_id"],), one=True)
                 if not tt:
                     continue
-                run = start_run(tt, cron["prompt"])
+                run = fire_trigger("cron", tt, cron["prompt"])
                 audit(run["id"], "cron_fired", f"cron {cron['id']}: {cron['name']}")
         except Exception:
             pass  # a bad cron must never kill the scheduler
@@ -211,7 +249,7 @@ def create_factory(data):
     """Initialize, configure, specialize (docs/tsf-clone.md #4). Starts in."""
     name, template = data.get("name"), data.get("template", "summarize")
     if not isinstance(name, str) or not name.strip() or template not in TEMPLATES:
-        raise ValueError("name required, template must be summarize|classify|report")
+        raise ValueError("name required, template must be summarize|classify|report|incident|news")
     try:
         tid = x("INSERT INTO task_types(name,template,mode) VALUES(?,?,?)", (name.strip(), template, "in"))
     except sqlite3.IntegrityError:
@@ -228,6 +266,223 @@ def create_factory(data):
         page = q("SELECT * FROM pages WHERE id=?", (pid,), one=True)
     audit(None, "factory_created", f"{tt['name']} template={template} crons={len(crons)}")
     return {"task_type": tt_view(tt), "crons": crons, "page": page}
+
+def fire_trigger(kind, tt, text):
+    """Every trigger (prompt/click/cron/webhook/event) enters via start_run."""
+    run = start_run(tt, text)
+    audit(run["id"], "trigger_fired", f"kind={kind} task={tt['name']}")
+    return run
+
+# --- Real Jev via OpenRouter (docs/leaving-the-loop-clone.md #6) ---
+_jev_cache = {}
+
+def _render(obj, vars):
+    if isinstance(obj, str):
+        m = re.fullmatch(r"\{\{(\w+)\}\}", obj)
+        if m: return vars.get(m.group(1), "")
+        return re.sub(r"\{\{(\w+)\}\}", lambda mm: str(vars.get(mm.group(1), "")), obj)
+    if isinstance(obj, dict): return {k: _render(v, vars) for k, v in obj.items()}
+    if isinstance(obj, list): return [_render(v, vars) for v in obj]
+    return obj
+
+def load_jev(name):
+    if name not in _jev_cache:
+        with open(HERE / "prompt_engineering" / "jev" / name / "command.json") as f:
+            _jev_cache[name] = json.load(f)
+    return _jev_cache[name]
+
+def _jev_mock_answers(state, questions):
+    text = json.dumps(state).lower() if not isinstance(state, dict) else \
+        (str(state.get("title", "")) + " " + str(state.get("excerpt", ""))).lower()
+    hot = any(w in text for w in ("release", "available", "agent", "model", "flag"))
+    answers = {}
+    for qid, qu in questions.items():
+        if qu["type"] == "noul":
+            answers[qid] = {"type": "noul", "noul": 0.9 if hot else 0.15}
+        elif qu["type"] == "choice":
+            opts = list(qu.get("criteria") or {})
+            answers[qid] = {"type": "choice", "choice": opts[0] if opts else "", "probabilities": {}, "confidence": 0.5}
+        else:
+            top = len(qu.get("criteria") or [1, 2]) - 1
+            pos = 0.85 if hot else 0.2
+            if qid == "hype": pos = 0.85 if ("changes everything" in text or "revolutionary" in text) else 0.25
+            if qid == "facts": pos = 0.85 if re.search(r"\d|version", text) else 0.3
+            answers[qid] = {"type": "score", "score": pos * top, "legend": {str(i): c for i, c in enumerate(qu.get("criteria") or [])}, "probabilities": {}, "confidence": 0.5}
+    return answers
+
+def jev_classify(state, questions, command="", run_id=None):
+    """One Jev Decisions call. Raises RuntimeError on any failure (fail closed)."""
+    if JEV_MOCK:
+        answers = _jev_mock_answers(state, questions)
+        x("INSERT INTO jev_calls(run_id,command,model,input_tokens,cost,mock,created_at) VALUES(?,?,?,0,0,1,?)",
+          (run_id, command, "mock", time.time()))
+        return answers
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("jev unavailable (no OPENROUTER_API_KEY); set JEV_MOCK=1 for explicit dev mock")
+    cfg = get_config()
+    payload = {"model": cfg["jev_model"], "state": state, "questions": questions}
+    req = urllib.request.Request("https://openrouter.ai/api/alpha/decisions",
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json", "X-Title": "loop-app"})
+    last = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read())
+            answers = data["answers"]
+            if not isinstance(answers, dict) or not all(isinstance(a, dict) and "type" in a for a in answers.values()):
+                raise ValueError("malformed jev answers")
+            usage = data.get("usage") or {}
+            tokens = int(usage.get("input_tokens") or 0)
+            cost = usage.get("cost") if isinstance(usage.get("cost"), (int, float)) else tokens / 1_000_000 * JEV_PRICE_PER_M
+            x("INSERT INTO jev_calls(run_id,command,model,input_tokens,cost,mock,created_at) VALUES(?,?,?,?,?,0,?)",
+              (run_id, command, data.get("model", cfg["jev_model"]), tokens, float(cost), time.time()))
+            return answers
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (429, 502, 503, 529): break
+            time.sleep(0.5 * (attempt + 1))
+        except Exception as e:
+            raise RuntimeError(f"jev call failed: {e}") from e
+    raise RuntimeError(f"jev call failed: {last}")
+
+def run_jev(name, vars, run_id=None):
+    cmd = load_jev(name)
+    questions = _render(cmd["questions"], vars)
+    if cmd.get("each"):  # one question set per list item (claim-support)
+        over, as_ = cmd["each"]["over"], cmd["each"]["as"]
+        questions = {}
+        for i, item in enumerate(vars.get(over) or []):
+            for qid, qu in _render(cmd["questions"], {**vars, as_: item}).items():
+                questions[f"{qid}_{i}"] = qu
+    return jev_classify(_render(cmd["state"], vars), questions, command=name, run_id=run_id), cmd.get("policy") or {}
+
+def score100(answer):
+    top = len(answer.get("legend") or answer.get("probabilities") or [1, 2]) - 1
+    return round(min(1.0, max(0.0, answer["score"] / top)) * 100) if top > 0 else 0
+
+def topic_keywords():
+    return [{"key": w["key"], "weight": w["weight"]} for w in q("SELECT * FROM weights WHERE kind='topic' ORDER BY key")]
+
+def taste_examples():
+    liked = [i["title"] for i in q("SELECT title FROM items WHERE status='presented' ORDER BY id DESC LIMIT 3")]
+    disliked = [i["title"] for i in q("SELECT title FROM items WHERE status='dismissed' ORDER BY id DESC LIMIT 3")]
+    return {"liked": liked, "disliked": disliked}
+
+# --- News sweep: gather -> gate -> dedupe -> rank -> present ---
+def _item_hash(title, body):
+    return hashlib.sha256(f"{title}\n{body}".encode()).hexdigest()[:32]
+
+def insert_item(title, url, body, source):
+    h = _item_hash(title, body)
+    try:
+        iid = x("INSERT INTO items(title,url,body,source,hash,status,created_at) VALUES(?,?,?,?,?,'new',?)",
+                (title, url, body, source, h, time.time()))
+        return iid, True
+    except sqlite3.IntegrityError:
+        return q("SELECT id FROM items WHERE hash=?", (h,), one=True)["id"], False
+
+def fetch_source(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "loop-app news sweep"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        root = ET.fromstring(r.read())
+    out = []
+    for node in root.iter():
+        if node.tag.split("}")[-1] in ("item", "entry"):
+            vals = {c.tag.split("}")[-1]: (c.text or "").strip() for c in node.iter() if c.text}
+            if vals.get("title"):
+                out.append((vals["title"], vals.get("link", url), vals.get("description", vals.get("summary", ""))))
+    return out
+
+def do_sweep(run_id):
+    run = q("SELECT * FROM runs WHERE id=?", (run_id,), one=True)
+    tt = q("SELECT * FROM task_types WHERE id=?", (run["task_type_id"],), one=True)
+    x("UPDATE runs SET status='running' WHERE id=?", (run_id,))
+    audit(run_id, "run_started", f"mode={run['mode']} template=news")
+    idx = -1
+    def phase(name, output):
+        nonlocal idx; idx += 1
+        x("INSERT INTO steps(run_id,idx,name,status,output,confidence,risky,tokens,cost) VALUES(?,?,?,'done',?,0.95,0,0,0)",
+          (run_id, idx, name, output))
+        audit(run_id, "step_done", f"{name}: {output}")
+    try:
+        new_count = 0
+        for url in get_config()["news_sources"]:
+            try:
+                for title, link, desc in fetch_source(url):
+                    _, created = insert_item(title, link, desc, url)
+                    new_count += int(created)
+            except Exception as e:
+                audit(run_id, "source_skipped", f"{url}: {e}")  # one bad source never kills a sweep
+        phase("gather", f"{new_count} new items")
+        gated, folded = [], 0
+        presented_hashes = {i["hash"] for i in q("SELECT hash FROM items WHERE status='presented'")}
+        for item in q("SELECT * FROM items WHERE status='new' ORDER BY id LIMIT 50"):
+            if item["hash"] in presented_hashes:
+                x("UPDATE items SET status='dup' WHERE id=?", (item["id"],)); folded += 1; continue
+            vars = {"title": item["title"], "source": item["source"], "excerpt": item["body"][:800],
+                    "published_at": "", "topic_keywords": topic_keywords(), "taste_examples": taste_examples(),
+                    "topic_choices": {w["key"]: None for w in topic_keywords()} or {"agent": None}}
+            rel, rel_pol = run_jev("relevance", vars, run_id)
+            worth, worth_pol = run_jev("worth-attention", vars, run_id)
+            if score100(rel["relevance"]) / 100 < rel_pol.get("relevance_min", 0.45) or worth["worth"]["noul"] < worth_pol.get("worth_min", 0.35):
+                x("UPDATE items SET status='gated' WHERE id=?", (item["id"],))
+            else:
+                gated.append(item)
+        phase("gate", f"{len(gated)} passed, {folded} hash-dupes folded")
+        kept = []
+        for item in gated:  # shortcut: jev same-story only when titles collide; hash+title cover the common case
+            dupe = next((k for k in kept if k["title"].lower() == item["title"].lower()), None)
+            if dupe:
+                ans, pol = run_jev("same-story", {"candidate": item["title"], "existing": dupe["title"]}, run_id)
+                if ans["same"]["noul"] >= pol.get("same", 0.85):
+                    x("UPDATE items SET status='dup' WHERE id=?", (item["id"],)); folded += 1; continue
+            kept.append(item)
+        phase("dedupe", f"{len(kept)} unique stories")
+        topics = topic_keywords()
+        for item in kept:
+            hfs, _ = run_jev("hfs", {"title": item["title"], "source": item["source"], "excerpt": item["body"][:800],
+                                     "findings": "", "section_keywords": {}, "taste_examples": taste_examples()}, run_id)
+            imp, _ = run_jev("importance", {"title": item["title"], "source": item["source"], "source_weight": 1,
+                                            "published_at": "", "excerpt": item["body"][:800], "topic": "",
+                                            "topic_weight": 1, "topic_keywords": topics, "taste_examples": taste_examples()}, run_id)
+            text = (item["title"] + " " + item["body"]).lower()
+            tw = max([w["weight"] for w in topics if w["key"] in text] or [1.0])
+            sw = (q("SELECT weight FROM weights WHERE kind='source' AND key=?", (item["source"],), one=True) or {"weight": 1.0})["weight"]
+            age_days = max(0.0, (time.time() - item["created_at"]) / 86400)
+            rank = score100(imp["importance"]) * tw * sw / (1 + age_days)
+            x("UPDATE items SET hype=?,facts=?,signal=?,importance=?,status='ranked' WHERE id=?",
+              (score100(hfs["hype"]), score100(hfs["facts"]), score100(hfs["signal"]), rank, item["id"]))
+            item.update({"hype": score100(hfs["hype"]), "facts": score100(hfs["facts"]), "signal": score100(hfs["signal"]), "importance": rank})
+        kept.sort(key=lambda i: -(i["importance"] or 0))
+        phase("rank", f"ranked {len(kept)}")
+        top = kept[:7]
+        for item in top:
+            x("UPDATE items SET status='presented' WHERE id=?", (item["id"],))
+            if (item["hype"] or 0) >= 50 and (item["signal"] or 0) >= 50 and (item["facts"] or 0) < 50:
+                audit(run_id, "suspect_combo", f"item {item['id']}: hype+signal without facts — needs human taste")
+        cards = "".join(f"<article><h3>{i['title']}</h3><p>Hype {i['hype']} · Facts {i['facts']} · Signal {i['signal']}</p><p>{i['body'][:300]}</p></article>" for i in top)
+        pid = x("INSERT INTO pages(title,body,created_by,created_at,updated_at) VALUES(?,?,?,?,?)",
+                (f"News sweep {time.strftime('%H:%M')}", cards or "<p>nothing new</p>", "agent", time.time(), time.time()))
+        phase("present", f"{len(top)} cards on page {pid}")
+        return finish(run_id, tt["id"], "completed")
+    except RuntimeError as e:
+        audit(run_id, "sweep_failed", str(e))
+        if run["mode"] == "out":
+            audit(run_id, "alert", f"out-of-loop sweep failure: {e}")
+        return finish(run_id, tt["id"], "failed")
+
+def resume_queued():
+    """Boot durability: queued runs start; done steps are checkpoints."""
+    for run in q("SELECT * FROM runs WHERE status='queued'"):
+        tt = q("SELECT * FROM task_types WHERE id=?", (run["task_type_id"],), one=True)
+        if tt:
+            threading.Thread(target=sweep_runner if tt["template"] == "news" else runner, args=(run["id"],), daemon=True).start()
+            audit(run["id"], "run_resumed", "queued run resumed after restart")
+
+def sweep_runner(run_id):
+    try: do_sweep(run_id)
+    finally: CTRL.pop(run_id, None)
 
 # In-memory controls for live run threads (not persisted).
 CTRL = {}  # run_id -> {"kill":bool,"paused":bool,"decision":dict|None,"wake":Event}
@@ -346,7 +601,8 @@ def runner(run_id):
             while True:
                 try:
                     out, got_conf = run_step(name, run["input"], conf)
-                    x("UPDATE steps SET status='done',output=?,confidence=? WHERE id=?", (out, got_conf, step_id))
+                    x("UPDATE steps SET status='done',output=?,confidence=?,tokens=? WHERE id=?",
+                      (out, got_conf, (len(run["input"]) + len(out)) // 4, step_id))  # chars/4 token proxy under the stub
                     audit(run_id, "step_done", f"step {step_id}: {name}")
                     break
                 except RuntimeError as e:
@@ -434,6 +690,22 @@ class H(BaseHTTPRequestHandler):
             return self.send_json(200, page)
         if parts == ["api", "proposals"]:
             return self.send_json(200, q("SELECT * FROM proposals ORDER BY id DESC LIMIT 50"))
+        if parts == ["api", "items"]:
+            status = self.path.split("status=")[-1] if "status=" in self.path else None
+            rows = q("SELECT * FROM items WHERE status=? ORDER BY importance DESC, id DESC LIMIT 50", (status,)) if status \
+                else q("SELECT * FROM items ORDER BY id DESC LIMIT 50")
+            return self.send_json(200, rows)
+        if parts == ["api", "weights"]:
+            return self.send_json(200, q("SELECT * FROM weights ORDER BY kind, key"))
+        if parts == ["api", "executions"]:
+            steps = q("SELECT COALESCE(SUM(tokens),0) AS t, COALESCE(SUM(cost),0) AS c FROM steps", one=True)
+            jev = q("SELECT COUNT(*) AS n, COALESCE(SUM(cost),0) AS c, COALESCE(SUM(mock),0) AS m FROM jev_calls", one=True)
+            live = len([r for r in q("SELECT id FROM runs WHERE status IN ('queued','running','awaiting_decision','paused')")])
+            crons_on = q("SELECT COUNT(*) AS n FROM crons WHERE enabled=1", one=True)["n"]
+            return self.send_json(200, {"step_tokens": steps["t"], "step_cost": steps["c"],
+                "jev_calls": jev["n"], "jev_cost": jev["c"], "jev_mock_calls": jev["m"],
+                "agents_working_now": live + crons_on, "live_runs": live, "enabled_crons": crons_on,
+                "runs_by_status": {r["status"]: r["n"] for r in q("SELECT status, COUNT(*) AS n FROM runs GROUP BY status")}})
         return self.send_json(404, {"error": "not found"})
 
     def do_DELETE(self):
@@ -478,7 +750,7 @@ class H(BaseHTTPRequestHandler):
         if parts == ["api", "task-types"]:
             name, template = data.get("name", ""), data.get("template", "summarize")
             if not isinstance(name, str) or not name.strip() or template not in TEMPLATES or data.get("mode", "in") not in MODES:
-                return self.send_json(400, {"error": "name required, template must be summarize|classify|report, mode must be in|near|out"})
+                return self.send_json(400, {"error": "name required, template must be summarize|classify|report|incident|news, mode must be in|near|out"})
             name = name.strip()
             try:
                 tid = x("INSERT INTO task_types(name,template,mode) VALUES(?,?,?)",
@@ -562,6 +834,63 @@ class H(BaseHTTPRequestHandler):
                 x("UPDATE proposals SET status='rejected' WHERE id=?", (prop["id"],))
                 audit(None, "proposal_rejected", f"proposal {prop['id']}")
             return self.send_json(200, q("SELECT * FROM proposals WHERE id=?", (prop["id"],), one=True))
+        if len(parts) == 3 and parts[:2] == ["api", "triggers"]:
+            tt = q("SELECT * FROM task_types WHERE id=?", (parts[2],), one=True)
+            if not tt: return self.send_json(404, {"error": "task type not found"})
+            if not isinstance(data.get("input", ""), str):
+                return self.send_json(400, {"error": "input must be a string"})
+            return self.send_json(201, fire_trigger("webhook", tt, data.get("input", "")))
+        if parts == ["api", "events"]:
+            status, message = data.get("status"), data.get("message", "")
+            if not isinstance(status, int) or isinstance(status, bool) or not isinstance(message, str):
+                return self.send_json(400, {"error": "status (int) and message (string) required"})
+            tt = q("SELECT * FROM task_types WHERE id=?", (data.get("task_type_id"),), one=True) \
+                or q("SELECT * FROM task_types WHERE template='incident' ORDER BY id", one=True)
+            if not tt: return self.send_json(400, {"error": "no incident task type; create one first"})
+            if 400 <= status < 600:  # fast path: no classifier needed for 4xx/5xx
+                return self.send_json(201, {"started": True, "run": fire_trigger("event", tt, f"[{status}] {message}")})
+            try:
+                rel, pol = run_jev("relevance", {"title": message, "source": data.get("source", "event"),
+                    "excerpt": message, "topic_keywords": topic_keywords(), "taste_examples": taste_examples(),
+                    "topic_choices": {w["key"]: None for w in topic_keywords()} or {"agent": None}})
+                relevant = score100(rel["relevance"]) / 100 >= pol.get("relevance_min", 0.45)
+            except RuntimeError as e:
+                return self.send_json(503, {"error": str(e)})
+            audit(None, "event_received", f"status={status} relevant={relevant}: {message[:80]}")
+            if not relevant:
+                return self.send_json(200, {"started": False, "reason": "classified not relevant"})
+            return self.send_json(201, {"started": True, "run": fire_trigger("event", tt, f"[{status}] {message}")})
+        if parts == ["api", "items"]:
+            title, body = data.get("title"), data.get("body", "")
+            if not isinstance(title, str) or not title.strip() or not isinstance(body, str):
+                return self.send_json(400, {"error": "item title required, body must be a string"})
+            iid, created = insert_item(title.strip(), data.get("url", ""), body, data.get("source", "manual"))
+            return self.send_json(201 if created else 200, q("SELECT * FROM items WHERE id=?", (iid,), one=True))
+        if len(parts) == 4 and parts[:2] == ["api", "items"] and parts[3] == "vote":
+            item = q("SELECT * FROM items WHERE id=?", (parts[2],), one=True)
+            if not item: return self.send_json(404, {"error": "item not found"})
+            vote = data.get("vote")
+            if vote not in ("up", "down"): return self.send_json(400, {"error": "vote must be up|down"})
+            delta = 0.1 if vote == "up" else -0.1  # the flywheel: votes move weights
+            if vote == "down":
+                x("UPDATE items SET status='dismissed' WHERE id=?", (item["id"],))
+            src = q("SELECT weight FROM weights WHERE kind='source' AND key=?", (item["source"],), one=True)
+            x("INSERT OR REPLACE INTO weights(kind,key,weight) VALUES('source',?,?)",
+              (item["source"], max(0.1, (src["weight"] if src else 1.0) + delta)))
+            text = (item["title"] + " " + item["body"]).lower()
+            for w in topic_keywords():
+                if w["key"] in text:
+                    x("INSERT OR REPLACE INTO weights(kind,key,weight) VALUES('topic',?,?)",
+                      (w["key"], max(0.1, w["weight"] + delta)))
+            audit(None, f"item_{vote}voted", f"item {item['id']}: {item['title'][:60]}")
+            return self.send_json(200, q("SELECT * FROM items WHERE id=?", (item["id"],), one=True))
+        if parts == ["api", "weights"]:
+            kind, key, weight = data.get("kind"), data.get("key"), data.get("weight")
+            if kind not in ("topic", "source") or not isinstance(key, str) or not key.strip() \
+                    or not isinstance(weight, (int, float)) or isinstance(weight, bool) or not 0.1 <= weight <= 2:
+                return self.send_json(400, {"error": "kind topic|source, key, weight 0.1..2 required"})
+            x("INSERT OR REPLACE INTO weights(kind,key,weight) VALUES(?,?,?)", (kind, key.strip(), float(weight)))
+            return self.send_json(200, {"kind": kind, "key": key.strip(), "weight": float(weight)})
         if len(parts) == 4 and parts[:2] == ["api", "runs"] and parts[3] in ("decide", "control"):
             run = q("SELECT * FROM runs WHERE id=?", (parts[2],), one=True)
             if not run: return self.send_json(404, {"error": "run not found"})
@@ -607,6 +936,7 @@ if __name__ == "__main__":
         with open(sys.argv[2]) as f:
             print(json.dumps(create_factory(json.load(f)), indent=1))
         sys.exit(0)
+    resume_queued()
     threading.Thread(target=cron_loop, daemon=True).start()
     port = int(os.environ.get("PORT", "8000"))
     host = os.environ.get("HOST", "localhost")  # Dockerfile sets 0.0.0.0 so -p can reach it
