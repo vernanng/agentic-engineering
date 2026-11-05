@@ -31,7 +31,7 @@ docker compose ps                # status
 docker compose down              # stop (data stays in the loop-data volume)
 ```
 
-Images are tagged with the git short SHA (`loop-app:<sha>`, plus `loop-app:latest`). On health-check failure [deploy.sh](deploy.sh) rolls back to the previous image automatically. Manual rollback: `IMAGE_TAG=<old-sha> docker compose up -d`. The stack is defined in [compose.yaml](compose.yaml); [deploy.sh](deploy.sh) is thin glue (gate + SHA tag + rollback) on top of it.
+Images are tagged with the git short SHA (`loop-app:<sha>`, plus `loop-app:latest`). On health-check failure [deploy.sh](deploy.sh) rolls back to the previous image automatically. Manual rollback: `IMAGE_TAG=<old-sha> docker compose up -d`. The stack is defined in [compose.yaml](compose.yaml); [deploy.sh](deploy.sh) is thin glue (gate + SHA tag + rollback) on top of it. Branch per task; merge to `main` first — `./deploy.sh` only from `main`.
 
 Works with any Docker daemon (Colima, Docker Desktop, …); the scripts use whichever `docker context` is active — keep one active at a time and check with `docker info`. `docker volume rm loop-data` deletes all run history — don't run it to "clean up".
 
