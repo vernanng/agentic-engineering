@@ -1,0 +1,23 @@
+name: CD
+
+# Local-first CD without Docker: a self-hosted runner on this machine
+# gates, builds the Rust binary, swaps it in, health-checks, rolls back.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, macOS]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gate + build + deploy
+        run: ./deploy.sh
+      - name: Show service log on failure
+        if: failure()
+        run: tail -n 50 loop-app.log || true

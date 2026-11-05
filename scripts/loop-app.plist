@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Optional always-on service. Install:
+     cp scripts/loop-app.plist ~/Library/LaunchAgents/com.loop-app.plist
+     launchctl load ~/Library/LaunchAgents/com.loop-app.plist
+     Point deploy.sh at it by removing .loop-app.pid handling (kickstart instead). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.loop-app</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/vernantjoa/projects/agentic-engineering/releases/loop-app-latest</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/vernantjoa/projects/agentic-engineering</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key><string>8000</string>
+    <key>LOOP_DB</key><string>/Users/vernantjoa/projects/agentic-engineering/loop.db</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/vernantjoa/projects/agentic-engineering/loop-app.log</string>
+  <key>StandardErrorPath</key><string>/Users/vernantjoa/projects/agentic-engineering/loop-app.log</string>
+</dict>
+</plist>

@@ -1,6 +1,6 @@
 # Agentic Engineering
 
-Real app under active development — **local first**. No cloud deploy; everything runs on this machine via Docker Compose at `http://localhost:8000`.
+Real app under active development — **local first**. Rust, one binary, no Docker. Everything runs on this machine at `http://localhost:8000`.
 
 A task earns autonomy: **in-the-loop >> near-the-loop >> out-of-the-loop**.
 
@@ -10,108 +10,55 @@ A task earns autonomy: **in-the-loop >> near-the-loop >> out-of-the-loop**.
 | `near` | Runs alone. Pauses only on low confidence (< 0.7), a risky step, or a failure (approve = skip step, reject = kill run). Pause / Resume / Kill from the run list. |
 | `out` | No prompts. Guardrails only: 60s run timeout, steps from the template allowlist. A failure halts the run, writes an `alert` audit entry, and demotes the task type back to `near`. |
 
-Promotion is earned, not automatic: 3 consecutive successful runs in `in` (5 in `near`) make a task type eligible; a human clicks **Promote** (the API also accepts `force: true`). Manual mode buttons always override. Every run, step, decision, and mode change is in the audit log (SQLite).
+Promotion is earned, not automatic: 3 consecutive successful runs in `in` (5 in `near`) make a task type eligible; a human clicks **Promote** (the API also accepts `force: true`). Every run, step, decision, and mode change is in the audit log (SQLite).
 
-Build order is the same as promotion order: in-the-loop first, out-of-the-loop last. Do not start a new task type in `out`.
-
-## Modes
-
-- [in-the-loop/](in-the-loop/README.md) — approve every step.
-- [near-the-loop/](near-the-loop/README.md) — auto, pauses on exceptions, pause/resume/kill.
-- [out-of-the-loop/](out-of-the-loop/README.md) — fully automatic, guardrails, alert + demotion on failure.
-
-## Quick start (local CD)
-
-One command deploys locally — gate, build, replace, health-check, rollback on failure. This is the primary workflow.
+## Quick start
 
 ```bash
-./deploy.sh                      # check.py gate -> docker compose build loop-app:<git-sha> -> up -> curl health check
-docker compose logs -f app       # logs
-docker compose ps                # status
-docker compose down              # stop (data stays in the loop-data volume)
+cargo test          # gate: boots the real binary, mocked models, no spend
+./deploy.sh         # from main only: gate -> release build -> DB backup -> swap binary -> health check -> rollback on failure
 ```
 
-Images are tagged with the git short SHA (`loop-app:<sha>`, plus `loop-app:latest`). On health-check failure [deploy.sh](deploy.sh) rolls back to the previous image automatically. Manual rollback: `IMAGE_TAG=<old-sha> docker compose up -d`. The stack is defined in [compose.yaml](compose.yaml); [deploy.sh](deploy.sh) is thin glue (gate + SHA tag + rollback) on top of it. Branch per task; merge to `main` first — `./deploy.sh` only from `main`.
+The app is live at `http://localhost:8000` after deploy. Logs: `tail -f loop-app.log`. Stop: `kill "$(cat .loop-app.pid)"`. Bare run without the gate: `cargo run --release`.
 
-Works with any Docker daemon (Colima, Docker Desktop, …); the scripts use whichever `docker context` is active — keep one active at a time and check with `docker info`. `docker volume rm loop-data` deletes all run history — don't run it to "clean up".
+Push to `main` runs the same deploy on this machine via GitHub Actions ([.github/workflows/cd.yml](.github/workflows/cd.yml), self-hosted macOS runner). Binaries are kept per git SHA in `releases/`; the previous binary is the rollback.
 
-Bare-metal debugging only (no gate, no rollback):
+Exercise the loop: submit a `summarize` run (approve each step), switch `classify` to near and watch it pause on low confidence and the risky step, then put any task in out and add `FAIL` to the input to see the alert and demotion.
 
-```bash
-python3 server.py     # http://localhost:8000  (stdlib only, nothing to install)
-python3 check.py      # end-to-end check of all three modes + promotion + mocked OpenRouter
-```
+Detached CLI (same API, no browser): `cargo run --release --bin client -- [--json] status|feed|runs|send <task_type_id> "<input>"|vote <id> up|down` (`LOOP_URL` defaults to `http://localhost:8000`).
 
-Optional auto-deploy on every commit (not installed by default): `printf '#!/bin/sh\n./deploy.sh\n' > .git/hooks/post-commit && chmod +x .git/hooks/post-commit`.
+## Change settings
 
-Exercise the loop: submit a `summarize` run (in-the-loop, approve each step), switch `classify` to near and watch it pause on low confidence and the risky step, then put any task in out and add `FAIL` to the input to see the alert and demotion.
-
-Detached CLI (same API, no browser): `python3 client.py [--json] status|feed|runs|send <task_type_id> "<input>"|vote <id> up|down` (`LOOP_URL` defaults to `http://localhost:8000`).
-
-## Tiny Software Factory
-
-The UI is a tiny software factory (see [docs/tsf-clone.md](docs/tsf-clone.md), with the source transcript): lists on the left (task types, crons, pages), focus in the center (selected run or page), the durable agent on the right (tools, core-four config, proposals). Close the browser and cron prompts keep creating runs; reopen it and the work is waiting for review. Deliberately DONE WRONG, like the lesson: one agent, cron in the server, one JSON config, SQLite on one box — each limit is marked `shortcut:` in [server.py](server.py).
-
-## Build a real task
-
-Edit `TEMPLATES` in [server.py](server.py) (steps are `name, confidence, risky`). `run_step()` — signature `(step_name, text, confidence) -> (output, confidence)`, raising `RuntimeError` on failure — calls OpenRouter when configured, else a local stub with no spend. Setup: `cp .env.example .env`, set `OPENROUTER_API_KEY=sk-or-...` (from your OpenRouter balance), then `./deploy.sh`. Never commit `.env`.
-
-| Setting | Default | Notes |
-|---|---|---|
-| `OPENROUTER_API_KEY` | — (stub) | Set = real model calls; unset = local stub, no spend. |
-| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | Main model (also the default cheap tier). |
-| `OPENROUTER_ESCALATION_MODEL` | `openai/gpt-4o` | Used when template confidence < 0.7. |
-| `DEEPSEEK_FLASH_MODEL` | — (unset) | When set, routine steps (confidence ≥ 0.9) use this cheap model instead of the main model. |
-| `OPENROUTER_MAX_TOKENS` | `500` | Response cap per step. |
-| `JEV_MODEL` | `~typesafe/jev-latest` | Jev Decisions model for news gating/ranking. |
-| `JEV_MOCK` | — (unset) | `1` = explicit labelled dev mock for Jev; without a key the real path fails closed. |
-| `LOOP_DB` | `loop.db` (local) / `/data/loop.db` (container) | SQLite state file. |
-| `PORT` / `HOST` | `8000` / `localhost` | Container sets `HOST=0.0.0.0`. |
-| `LOOP_TOKEN` | unset | When set, `/api` requires `X-Loop-Token`. |
-| `LOOP_URL` | `http://localhost:8000` | [client.py](client.py) only: API base URL. |
-
-The model must reply with only JSON `{"output": "...", "confidence": 0.0-1.0}`; any call or parse failure raises, so the loop's pause/alert handling engages. Input containing `FAIL` always simulates a step failure.
+- UI: Agent panel → Thinking level → **Save**. Proposals from agents apply only after you Approve them.
+- API: `curl -X PUT http://localhost:8000/api/config -H 'Content-Type: application/json' -d '{"thinking_level":"high","max_tokens":800}'`. Keys: `model`, `escalation_model`, `cheap_model`, `jev_model`, `max_tokens` (1–8000), `conf_threshold` (0–1), `system_prompt`, `thinking_level`, `enabled_slices`, `context_limit`, `news_sources`.
+- Boot env (`.env`, sourced by [deploy.sh](deploy.sh)): `OPENROUTER_API_KEY` (unset = local stub, no spend), `OPENROUTER_MODEL` (`openai/gpt-4o-mini`), `OPENROUTER_ESCALATION_MODEL` (`openai/gpt-4o`), `DEEPSEEK_FLASH_MODEL` (cheap tier), `JEV_MODEL`, `LOOP_TOKEN` (when set, `/api` needs `X-Loop-Token`). Never commit `.env`.
 
 > With a key set, run inputs are sent to OpenRouter/third-party models — never send confidential input until a data policy is chosen.
 
+## Add a feature
+
+1. Branch. Edit `templates()` or `run_step()` in [src/main.rs](src/main.rs) (steps are `name, confidence, risky`; keep the `(output, confidence, usage)` return; error on failure). UI in [static/index.html](static/index.html); new endpoints also join the `TOOLS` manifest so agents keep parity.
+2. Extend [tests/gate.rs](tests/gate.rs). `cargo test` must pass.
+3. Merge to `main`, then `./deploy.sh` (or push and let Actions do it).
+
 ## API
 
-All endpoints are JSON under `/api`. When `LOOP_TOKEN` is set, send `X-Loop-Token: <secret>` (UI: `localStorage.setItem("loop_token", "<secret>")` then reload); unset = localhost dev only.
+All endpoints are JSON under `/api`. When `LOOP_TOKEN` is set, send `X-Loop-Token: <secret>`; unset = localhost dev only.
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/task-types` | List task types (mode, success/failure counters, promotion eligibility). |
-| `POST /api/task-types` | Create `{name, template, mode}` — template must be `summarize\|classify\|report\|incident\|news`. |
-| `POST /api/task-types/:id/mode` | Set mode `{mode: in\|near\|out}`. |
-| `POST /api/task-types/:id/promote` | Promote one level (requires eligibility, or `{force: true}`). |
-| `GET /api/runs` | Latest 50 runs. |
-| `POST /api/runs` | Start a run `{task_type_id, input}` (mode is taken from the task type). |
-| `GET /api/runs/:id` | One run with its steps and audit trail. |
-| `POST /api/runs/:id/decide` | `{action: approve\|reject, edited_output?}` for the step awaiting decision. |
-| `POST /api/runs/:id/control` | `{action: pause\|resume\|kill}`. |
-| `DELETE /api/runs/:id` | Delete a finished run (with its steps, decisions, and audit rows). |
+| `GET/POST /api/task-types`, `POST /api/task-types/:id/mode`, `POST /api/task-types/:id/promote` | Task types, modes, earned promotion. |
+| `GET/POST /api/runs`, `GET /api/runs/:id`, `POST /api/runs/:id/decide`, `POST /api/runs/:id/control`, `DELETE /api/runs/:id` | Runs, decisions, pause/resume/kill, delete finished runs. |
 | `GET /api/audit` | Latest 100 audit entries. |
-| `GET /api/tools` | Agent access parity manifest: every UI control as an agent tool, plus harness slices. |
-| `GET /api/config` · `PUT /api/config` | Core four (context, model, prompt, tools) as one JSON config; `PUT` is human-direct. |
-| `GET/POST /api/crons`, `DELETE /api/crons/:id` | Cron prompts: `{name, schedule_s, prompt, task_type_id}` — the agent works while you're away. |
-| `GET/POST /api/pages`, `POST/DELETE /api/pages/:id` | Agent-written pages, shown sandboxed in the center (Focus) pane. |
-| `GET/POST /api/proposals`, `POST /api/proposals/:id/decide` | Self-modification proposals; nothing applies until a human approves. Never from `out`. |
-| `POST /api/factories` | Initialize + configure + specialize in one call (same code as `python3 server.py --init-factory factory.json`). Starts in `in`. |
-| `POST /api/triggers/:task_type_id` · `POST /api/events` | Proactive triggers: webhook, and log events (4xx/5xx fast path; the rest are Jev-gated into an `incident` run). |
-| `GET/POST /api/items`, `POST /api/items/:id/vote` | News cards with Hype/Facts/Signal scores; votes move topic/source weights (the taste flywheel). |
-| `GET/POST /api/weights` | Taste weights (`topic`/`source`, 0.1–2). |
-| `GET /api/executions` | Agents working now, Jev + step token/cost ledger. |
+| `GET /api/tools`, `GET/PUT /api/config` | Agent parity manifest; core-four config (PUT human-direct). |
+| `GET/POST /api/crons`, `DELETE /api/crons/:id` | Cron prompts — the agent works while you're away. |
+| `GET/POST /api/pages`, `POST/DELETE /api/pages/:id` | Agent-written pages, sandboxed in the UI. |
+| `GET/POST /api/proposals`, `POST /api/proposals/:id/decide` | Self-modification; applies only on human approve. Never from `out`. |
+| `POST /api/factories` | Initialize + configure + specialize (same as `loop-app --init-factory f.json`). Starts in `in`. |
+| `POST /api/triggers/:task_type_id`, `POST /api/events` | Webhook; log events (4xx/5xx fast path, rest Jev-gated into an `incident` run). |
+| `GET/POST /api/items`, `POST /api/items/:id/vote`, `GET/POST /api/weights` | News cards (Hype/Facts/Signal); votes move weights. |
+| `GET /api/executions` | Agents working now; Jev + step token/cost ledger. |
 
 ## Data
 
-State is one SQLite file (`loop.db` locally, `/data/loop.db` in the container, persisted in the external `loop-data` volume). Never edit the DB by hand; back up the volume before schema changes. On restart, stale live runs are marked `killed` — no runner threads survive a restart.
-
-[check.py](check.py) is the gate: it starts its own server on port 18099 with a temp DB, mocks OpenRouter (no network, no spend), and exercises all three modes plus promotion, the Tiny Software Factory surface, triggers, the news sweep, and the CLI. It must pass before every deploy — [deploy.sh](deploy.sh) runs it first.
-
-## Learns
-
-[basics/](basics/README.md) — reference guides and demos (Python, TypeScript, Rust, Docker, REST, WebSockets, MD3). Frozen as learns; the real app lives in this root.
-
-```bash
-bash basics/check.sh    # check every basics demo
-```
+One SQLite file, `loop.db` — the same file the Python version used; history carries over (verified by the gate against a copy). Never edit it by hand. [deploy.sh](deploy.sh) backs it up to `backups/` before every deploy.

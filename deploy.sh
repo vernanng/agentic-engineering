@@ -1,56 +1,52 @@
 #!/usr/bin/env bash
-# Local CD via Compose: check -> build -> up -> health-check -> rollback on failure.
+# Local CD without Docker: gate -> release build -> swap binary -> health-check -> rollback.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 [ "$BRANCH" = "main" ] || { echo "deploy: only from main (on $BRANCH)" >&2; exit 1; }
-
 SHA=$(git rev-parse --short HEAD)
 
-command -v docker >/dev/null || { echo "deploy: docker CLI not found" >&2; exit 1; }
-docker info >/dev/null 2>&1 || { echo "deploy: Docker daemon not running (try: colima start)" >&2; exit 1; }
-docker compose version >/dev/null 2>&1 || { echo "deploy: docker compose not available" >&2; exit 1; }
-echo "deploy: docker context = $(docker context show)"
+echo "==> gate: cargo test"
+cargo test --release 2>&1 | tail -n 3
 
-echo "==> gate: python3 check.py"
-python3 check.py
-
-# Previous image tag for rollback (e.g. loop-app:abc1234 -> abc1234), empty on first deploy.
-PREV=$(docker inspect -f '{{.Config.Image}}' loop-app 2>/dev/null || true)
-PREV_TAG=${PREV#loop-app:}
-[ "$PREV" = "loop-app:$PREV_TAG" ] || PREV_TAG=""
+echo "==> backup db"
+mkdir -p backups releases
+[ -f loop.db ] && cp loop.db "backups/loop-$(date +%Y%m%d-%H%M%S).db" || true
 
 echo "==> build loop-app:$SHA"
-IMAGE_TAG=$SHA docker compose build
-docker tag "loop-app:$SHA" loop-app:latest
+cargo build --release 2>&1 | tail -n 1
+cp target/release/loop-app "releases/loop-app-$SHA"
+cp target/release/client "releases/client-$SHA" 2>/dev/null || true
 
-# Adopt a pre-Compose `docker run` container of the same name (Compose won't replace foreign containers).
-if docker inspect loop-app >/dev/null 2>&1; then
-  PROJ=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' loop-app 2>/dev/null || true)
-  if [ -z "$PROJ" ]; then echo "deploy: removing pre-Compose loop-app container"; docker rm -f loop-app >/dev/null; fi
-fi
+PREV=$(cat .loop-app.current 2>/dev/null || true)
 
-docker volume create loop-data >/dev/null
+restart() { # $1 = binary path
+  if [ -f .loop-app.pid ]; then kill "$(cat .loop-app.pid)" 2>/dev/null || true; sleep 1; fi
+  set -a; [ -f .env ] && . ./.env; set +a
+  PORT="${PORT:-8000}" LOOP_DB="${LOOP_DB:-$PWD/loop.db}" nohup "$1" >> loop-app.log 2>&1 &
+  echo $! > .loop-app.pid
+  echo "$1" > .loop-app.current
+}
 
 echo "==> deploy loop-app:$SHA"
-IMAGE_TAG=$SHA docker compose up -d
+restart "$PWD/releases/loop-app-$SHA"
 
 echo "==> health check http://localhost:8000"
 for i in $(seq 1 20); do
   if curl -fsS http://localhost:8000/api/task-types >/dev/null 2>&1; then
-    echo "deploy: OK loop-app:$SHA at http://localhost:8000"
+    echo "deploy: OK loop-app:$SHA at http://localhost:8000 (pid $(cat .loop-app.pid))"
     exit 0
   fi
   sleep 0.5
 done
 
-echo "deploy: health check failed, logs:" >&2
-docker compose logs --tail=20 2>&1 | tail -20 >&2 || true
-if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$SHA" ] && [ "$PREV_TAG" != "latest" ]; then
-  echo "deploy: rolling back to loop-app:$PREV_TAG" >&2
-  IMAGE_TAG=$PREV_TAG docker compose up -d
+echo "deploy: health check failed, log tail:" >&2
+tail -n 20 loop-app.log >&2 || true
+if [ -n "$PREV" ] && [ -f "$PREV" ]; then
+  echo "deploy: rolling back to $PREV" >&2
+  restart "$PREV"
 else
-  docker compose down >/dev/null 2>&1 || true
+  [ -f .loop-app.pid ] && kill "$(cat .loop-app.pid)" 2>/dev/null || true
 fi
 exit 1
