@@ -65,6 +65,7 @@ def test_openrouter_mocked():
 
 def main():
     types = {t["name"]: t for t in call("GET", "/api/task-types")}
+    call("POST", "/api/task-types", {"name": "check-badmode", "template": "summarize", "mode": "bogus"}, 400)
     # 1. in-the-loop: pauses before each step, approve approves, reject kills
     tt = call("POST", "/api/task-types", {"name": "check-in", "template": "summarize", "mode": "in"}, 201)
     run = call("POST", "/api/runs", {"task_type_id": tt["id"], "input": "hello"}, 201)

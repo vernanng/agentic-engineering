@@ -3,6 +3,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+[ "$BRANCH" = "main" ] || { echo "deploy: only from main (on $BRANCH)" >&2; exit 1; }
+
 SHA=$(git rev-parse --short HEAD)
 
 command -v docker >/dev/null || { echo "deploy: docker CLI not found" >&2; exit 1; }

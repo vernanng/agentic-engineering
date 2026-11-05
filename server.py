@@ -271,8 +271,8 @@ class H(BaseHTTPRequestHandler):
             return self.send_json(400, {"error": "JSON object required"})
         if parts == ["api", "task-types"]:
             name, template = data.get("name", "").strip(), data.get("template", "summarize")
-            if not name or template not in TEMPLATES:
-                return self.send_json(400, {"error": "name required, template must be summarize|classify|report"})
+            if not name or template not in TEMPLATES or data.get("mode", "in") not in MODES:
+                return self.send_json(400, {"error": "name required, template must be summarize|classify|report, mode must be in|near|out"})
             try:
                 tid = x("INSERT INTO task_types(name,template,mode) VALUES(?,?,?)",
                         (name, template, data.get("mode", "in")))
