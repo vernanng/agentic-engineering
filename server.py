@@ -356,12 +356,6 @@ def jev_classify(state, questions, command="", run_id=None):
 def run_jev(name, vars, run_id=None):
     cmd = load_jev(name)
     questions = _render(cmd["questions"], vars)
-    if cmd.get("each"):  # one question set per list item (claim-support)
-        over, as_ = cmd["each"]["over"], cmd["each"]["as"]
-        questions = {}
-        for i, item in enumerate(vars.get(over) or []):
-            for qid, qu in _render(cmd["questions"], {**vars, as_: item}).items():
-                questions[f"{qid}_{i}"] = qu
     return jev_classify(_render(cmd["state"], vars), questions, command=name, run_id=run_id), cmd.get("policy") or {}
 
 def score100(answer):
@@ -392,7 +386,7 @@ def insert_item(title, url, body, source):
 def fetch_source(url):
     req = urllib.request.Request(url, headers={"User-Agent": "loop-app news sweep"})
     with urllib.request.urlopen(req, timeout=10) as r:
-        root = ET.fromstring(r.read())
+        root = ET.fromstring(r.read(5_000_000))  # shortcut: feeds over 5 MB fail parse and are skipped per-source, raise the cap when a real source outgrows it
     out = []
     for node in root.iter():
         if node.tag.split("}")[-1] in ("item", "entry"):
@@ -491,6 +485,14 @@ def sweep_runner(run_id):
     try: do_sweep(run_id)
     finally: CTRL.pop(run_id, None)
 
+# Last real-model usage from run_step() on this thread: (tokens, cost) or None (stub/proxy).
+_step_usage = threading.local()
+
+def take_step_usage():
+    u = getattr(_step_usage, "value", None)
+    _step_usage.value = None
+    return u
+
 # In-memory controls for live run threads (not persisted).
 CTRL = {}  # run_id -> {"kill":bool,"paused":bool,"decision":dict|None,"wake":Event}
 
@@ -506,6 +508,7 @@ def run_step(step_name, text, confidence):
     Returns (output, confidence); raises RuntimeError on any model/parse failure
     so the loop's pause/alert handling engages.
     """
+    _step_usage.value = None
     if "FAIL" in text:
         raise RuntimeError("simulated step failure (FAIL in input)")
     cfg = get_config()  # core-four, read live so config/proposals apply at once
@@ -530,9 +533,18 @@ def run_step(step_name, text, confidence):
                  "Content-Type": "application/json", "X-Title": "loop-app"})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
-            content = json.loads(r.read())["choices"][0]["message"]["content"]
+            body = json.loads(r.read())
+            content = body["choices"][0]["message"]["content"]
     except Exception as e:
         raise RuntimeError(f"OpenRouter call failed: {e}") from e
+    usage = body.get("usage") or {}
+    try:
+        tokens = int(usage.get("total_tokens") or (int(usage.get("prompt_tokens") or 0) + int(usage.get("completion_tokens") or 0)))
+        cost = float(usage.get("cost") or 0)
+    except (TypeError, ValueError):
+        tokens, cost = 0, 0.0
+    if tokens:
+        _step_usage.value = (tokens, cost)  # runner stores real usage; absent usage keeps the chars/4 proxy
     try:
         parsed = json.loads(content.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip())
         out, conf = parsed["output"], float(parsed["confidence"])
@@ -610,8 +622,9 @@ def runner(run_id):
             while True:
                 try:
                     out, got_conf = run_step(name, run["input"], conf)
-                    x("UPDATE steps SET status='done',output=?,confidence=?,tokens=? WHERE id=?",
-                      (out, got_conf, (len(run["input"]) + len(out)) // 4, step_id))  # chars/4 token proxy under the stub
+                    tokens, cost = take_step_usage() or ((len(run["input"]) + len(out)) // 4, 0)  # real usage wins; chars/4 proxy under the stub
+                    x("UPDATE steps SET status='done',output=?,confidence=?,tokens=?,cost=? WHERE id=?",
+                      (out, got_conf, tokens, cost, step_id))
                     audit(run_id, "step_done", f"step {step_id}: {name}")
                     break
                 except RuntimeError as e:
@@ -709,7 +722,7 @@ class H(BaseHTTPRequestHandler):
         if parts == ["api", "executions"]:
             steps = q("SELECT COALESCE(SUM(tokens),0) AS t, COALESCE(SUM(cost),0) AS c FROM steps", one=True)
             jev = q("SELECT COUNT(*) AS n, COALESCE(SUM(cost),0) AS c, COALESCE(SUM(mock),0) AS m FROM jev_calls", one=True)
-            live = len([r for r in q("SELECT id FROM runs WHERE status IN ('queued','running','awaiting_decision','paused')")])
+            live = q("SELECT COUNT(*) AS n FROM runs WHERE status IN ('queued','running','awaiting_decision','paused')", one=True)["n"]
             crons_on = q("SELECT COUNT(*) AS n FROM crons WHERE enabled=1", one=True)["n"]
             return self.send_json(200, {"step_tokens": steps["t"], "step_cost": steps["c"],
                 "jev_calls": jev["n"], "jev_cost": jev["c"], "jev_mock_calls": jev["m"],

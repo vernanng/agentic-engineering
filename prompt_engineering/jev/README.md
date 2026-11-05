@@ -4,7 +4,7 @@ Cloned from [disler/pi-durable-news-agent](https://github.com/disler/pi-durable-
 (MIT, © the pi-durable-news-agent authors), `apps/dna-server-api/prompt_engineering/jev/`.
 Each `<name>/command.json` is one Jev command: a `state` template, typed
 `questions` (`noul` / `choice` / `score`), and a `policy` block. `{{var}}`
-must be a whole value; `each` expands a list into one question per item.
+is substituted from the caller's vars by `_render()` in `server.py`.
 
 Run by `jev_classify()` in [server.py](../../server.py) against the real Jev
 model on OpenRouter (`POST https://openrouter.ai/api/alpha/decisions`,
@@ -17,5 +17,4 @@ path). Code decides thresholds; Jev decides judgments.
 | `worth-attention` | Worth an agentic engineer's attention today? (min 0.35) |
 | `importance` | Rank gated items; top 7 are presented |
 | `same-story` | Dedupe fallback when the content hash misses |
-| `claim-support` | Does the evidence support each claim? (min 0.7) |
 | `hfs` | Hype / Facts / Signal scores, 0–100 each |

@@ -46,6 +46,8 @@ Optional auto-deploy on every commit (not installed by default): `printf '#!/bin
 
 Exercise the loop: submit a `summarize` run (in-the-loop, approve each step), switch `classify` to near and watch it pause on low confidence and the risky step, then put any task in out and add `FAIL` to the input to see the alert and demotion.
 
+Detached CLI (same API, no browser): `python3 client.py [--json] status|feed|runs|send <task_type_id> "<input>"|vote <id> up|down` (`LOOP_URL` defaults to `http://localhost:8000`).
+
 ## Tiny Software Factory
 
 The UI is a tiny software factory (see [docs/tsf-clone.md](docs/tsf-clone.md), with the source transcript): lists on the left (task types, crons, pages), focus in the center (selected run or page), the durable agent on the right (tools, core-four config, proposals). Close the browser and cron prompts keep creating runs; reopen it and the work is waiting for review. Deliberately DONE WRONG, like the lesson: one agent, cron in the server, one JSON config, SQLite on one box — each limit is marked `shortcut:` in [server.py](server.py).
@@ -57,12 +59,16 @@ Edit `TEMPLATES` in [server.py](server.py) (steps are `name, confidence, risky`)
 | Setting | Default | Notes |
 |---|---|---|
 | `OPENROUTER_API_KEY` | — (stub) | Set = real model calls; unset = local stub, no spend. |
-| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | Main model. |
+| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | Main model (also the default cheap tier). |
 | `OPENROUTER_ESCALATION_MODEL` | `openai/gpt-4o` | Used when template confidence < 0.7. |
+| `DEEPSEEK_FLASH_MODEL` | — (unset) | When set, routine steps (confidence ≥ 0.9) use this cheap model instead of the main model. |
 | `OPENROUTER_MAX_TOKENS` | `500` | Response cap per step. |
+| `JEV_MODEL` | `~typesafe/jev-latest` | Jev Decisions model for news gating/ranking. |
+| `JEV_MOCK` | — (unset) | `1` = explicit labelled dev mock for Jev; without a key the real path fails closed. |
 | `LOOP_DB` | `loop.db` (local) / `/data/loop.db` (container) | SQLite state file. |
 | `PORT` / `HOST` | `8000` / `localhost` | Container sets `HOST=0.0.0.0`. |
 | `LOOP_TOKEN` | unset | When set, `/api` requires `X-Loop-Token`. |
+| `LOOP_URL` | `http://localhost:8000` | [client.py](client.py) only: API base URL. |
 
 The model must reply with only JSON `{"output": "...", "confidence": 0.0-1.0}`; any call or parse failure raises, so the loop's pause/alert handling engages. Input containing `FAIL` always simulates a step failure.
 
@@ -75,7 +81,7 @@ All endpoints are JSON under `/api`. When `LOOP_TOKEN` is set, send `X-Loop-Toke
 | Endpoint | Description |
 |---|---|
 | `GET /api/task-types` | List task types (mode, success/failure counters, promotion eligibility). |
-| `POST /api/task-types` | Create `{name, template, mode}` — template must be `summarize` \| `classify` \| `report`. |
+| `POST /api/task-types` | Create `{name, template, mode}` — template must be `summarize\|classify\|report\|incident\|news`. |
 | `POST /api/task-types/:id/mode` | Set mode `{mode: in\|near\|out}`. |
 | `POST /api/task-types/:id/promote` | Promote one level (requires eligibility, or `{force: true}`). |
 | `GET /api/runs` | Latest 50 runs. |
@@ -83,22 +89,24 @@ All endpoints are JSON under `/api`. When `LOOP_TOKEN` is set, send `X-Loop-Toke
 | `GET /api/runs/:id` | One run with its steps and audit trail. |
 | `POST /api/runs/:id/decide` | `{action: approve\|reject, edited_output?}` for the step awaiting decision. |
 | `POST /api/runs/:id/control` | `{action: pause\|resume\|kill}`. |
+| `DELETE /api/runs/:id` | Delete a finished run (with its steps, decisions, and audit rows). |
 | `GET /api/audit` | Latest 100 audit entries. |
 | `GET /api/tools` | Agent access parity manifest: every UI control as an agent tool, plus harness slices. |
 | `GET /api/config` · `PUT /api/config` | Core four (context, model, prompt, tools) as one JSON config; `PUT` is human-direct. |
 | `GET/POST /api/crons`, `DELETE /api/crons/:id` | Cron prompts: `{name, schedule_s, prompt, task_type_id}` — the agent works while you're away. |
 | `GET/POST /api/pages`, `POST/DELETE /api/pages/:id` | Agent-written pages, shown sandboxed in the center (Focus) pane. |
 | `GET/POST /api/proposals`, `POST /api/proposals/:id/decide` | Self-modification proposals; nothing applies until a human approves. Never from `out`. |
-| `POST /api/triggers/:id` · `POST /api/events` | Proactive triggers: webhook, and log events (4xx/5xx fast path; the rest are Jev-gated into an `incident` run). |
-| `GET/POST /api/items`, `POST /api/items/:id/vote` | News cards with Hype/Facts/Signal scores; votes move topic/source weights (the taste flywheel). |
-| `GET /api/executions` | Agents working now, Jev + step token/cost ledger. |
 | `POST /api/factories` | Initialize + configure + specialize in one call (same code as `python3 server.py --init-factory factory.json`). Starts in `in`. |
+| `POST /api/triggers/:task_type_id` · `POST /api/events` | Proactive triggers: webhook, and log events (4xx/5xx fast path; the rest are Jev-gated into an `incident` run). |
+| `GET/POST /api/items`, `POST /api/items/:id/vote` | News cards with Hype/Facts/Signal scores; votes move topic/source weights (the taste flywheel). |
+| `GET/POST /api/weights` | Taste weights (`topic`/`source`, 0.1–2). |
+| `GET /api/executions` | Agents working now, Jev + step token/cost ledger. |
 
 ## Data
 
 State is one SQLite file (`loop.db` locally, `/data/loop.db` in the container, persisted in the external `loop-data` volume). Never edit the DB by hand; back up the volume before schema changes. On restart, stale live runs are marked `killed` — no runner threads survive a restart.
 
-[check.py](check.py) is the gate: it starts its own server on port 18099 with a temp DB, mocks OpenRouter (no network, no spend), and exercises all three modes plus promotion. It must pass before every deploy — [deploy.sh](deploy.sh) runs it first.
+[check.py](check.py) is the gate: it starts its own server on port 18099 with a temp DB, mocks OpenRouter (no network, no spend), and exercises all three modes plus promotion, the Tiny Software Factory surface, triggers, the news sweep, and the CLI. It must pass before every deploy — [deploy.sh](deploy.sh) runs it first.
 
 ## Learns
 

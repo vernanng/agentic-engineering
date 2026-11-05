@@ -61,6 +61,33 @@ def test_openrouter_mocked():
         server.run_step("draft summary", "FAIL x", 0.95); raise AssertionError("expected RuntimeError")
     except RuntimeError:
         pass
+    # real usage wins over the chars/4 proxy; no usage -> proxy (None)
+    class _UsageResp:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def read(self, n=-1): return json.dumps({"choices": [{"message": {"content": good}}],
+            "usage": {"prompt_tokens": 900, "completion_tokens": 99, "total_tokens": 999, "cost": 0.5}}).encode()
+    server.OPENROUTER_API_KEY = "test-key"
+    with mock.patch.object(server.urllib.request, "urlopen", lambda req, timeout=None: _UsageResp()):
+        assert server.run_step("draft summary", "hello world", 0.95) == ("real summary", 0.9)
+        assert server.take_step_usage() == (999, 0.5), "real tokens/cost must reach the ledger"
+        assert server.take_step_usage() is None, "usage is consumed once"
+    with mock.patch.object(server.urllib.request, "urlopen", fake(good)):
+        server.run_step("draft summary", "hello world", 0.95)
+        assert server.take_step_usage() is None, "absent usage keeps the proxy"
+    server.OPENROUTER_API_KEY = ""
+    # feed reads are capped, never unbounded
+    feed_seen = {}
+    class _FeedResp:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def read(self, n=-1):
+            feed_seen["n"] = n
+            body = b"<rss><channel><item><title>Hi</title><link>http://x</link><description>d</description></item></channel></rss>"
+            return body if n is None or n < 0 else body[:n]
+    with mock.patch.object(server.urllib.request, "urlopen", lambda req, timeout=None: _FeedResp()):
+        assert server.fetch_source("http://example.com/feed.xml") == [("Hi", "http://x", "d")]
+        assert isinstance(feed_seen["n"], int) and 0 < feed_seen["n"] <= 10_000_000, feed_seen
     print("openrouter mock ok")
 
 def test_jev_wire_and_resume():
