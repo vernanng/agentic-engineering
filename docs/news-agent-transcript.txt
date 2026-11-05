@@ -1,0 +1,668 @@
+[00:00] What's up, engineers? Indie Dev Dan
+[00:01] here. In the age of AI, there's already
+[00:04] exponentially more noise than there is
+[00:07] signal. Lots of clickbait,
+[00:07] [clears throat] overhyped technology,
+[00:09] and attention theft. You've likely
+[00:11] already experienced this. I know I have.
+[00:13] As an engineer, your time and attention
+[00:16] are your most important resources. In
+[00:18] this video, I want to show you how I
+[00:20] shift through hype, facts, and signal
+[00:23] with one ultra-important emerging piece
+[00:26] of technology, proactive agents. But the
+[00:29] meta lesson of what you'll see in this
+[00:31] video is more important than the tools
+[00:34] we'll use. The best engineers are
+[00:36] transitioning from human in the loop to
+[00:38] human near the loop to human out the
+[00:40] loop. In, near, out. Why is this
+[00:42] transition so important? It's because
+[00:45] your agents can do 80% or more of
+[00:48] everything you're doing right now
+[00:50] autonomously [music]
+[00:51] if you have the right tech in place. The
+[00:54] problem is jumping from in loop straight
+[00:56] to [music] out loop is a big challenge.
+[00:59] That's where proactive agents come in.
+[01:01] Proactive agents don't wait for you
+[01:03] [music] to work. They work for you, then
+[01:05] wait. And when you're ready, you step
+[01:07] in, extract value, [music] give
+[01:09] feedback, and move on. If you want to
+[01:11] understand how you can up-level your
+[01:13] agentic engineering by moving from
+[01:15] [music] in, near, and out the loop,
+[01:17] stick around and let's filter out the
+[01:19] noise with the durable news agent.
+[01:27] What if your agents never stop?
+[01:34] So, let's pull up the application, and
+[01:36] what you'll see here is a typical agent
+[01:38] on the right, generative UI on the left.
+[01:41] You can see here, our news agent has
+[01:43] just caught the recent full announcement
+[01:46] of Gemini for Argon getting released via
+[01:49] their APIs. So, this is very powerful,
+[01:51] but at first glance, you might think
+[01:53] this isn't super special. Might just
+[01:54] recreating ChatGPT here. Not so fast. We
+[01:57] can access this agent in two ways. You
+[01:59] could see here I'm not actually
+[02:00] operating on my device. I'm actually
+[02:03] looking at a URL on my M4 Mac mini
+[02:06] device here. That means that the browser
+[02:08] we're looking at is a detached client.
+[02:10] Let's push this further. This is what a
+[02:12] proactive agent really is. It's not
+[02:14] waiting for me to work. If you open up
+[02:16] my terminal, you can see something
+[02:17] really amazing here. My agent in the
+[02:19] terminal and in the browser, they are
+[02:21] synced. Why are they synced? It's
+[02:23] because these are both only clients. My
+[02:25] real agent is operating on my M4 Mac
+[02:28] mini. The browser and my terminal user
+[02:30] interface here, they can see are both
+[02:32] running GPT-6 Luna, are operating and
+[02:35] connected to my durable agent running
+[02:38] directly on the M4. So that's the power
+[02:41] of what we have here. And you can see,
+[02:43] you know, my hands are off the keyboard.
+[02:44] Every minute here, every cron interval,
+[02:47] work is just going to happen. It's not
+[02:49] waiting for me to work. It's working for
+[02:51] me and then waiting for the next
+[02:53] execution to kick off. This agent is
+[02:55] proactive. It's built into a system.
+[02:58] It's more like a product that's
+[03:00] operating without me, for me. It really
+[03:02] is that simple. A proactive agent is a
+[03:05] durable agent plus a trigger inside of a
+[03:07] sandbox. We can quickly just spam
+[03:09] refresh here and get all the latest
+[03:11] information. This agent is durable. It's
+[03:13] backed by SQLite databases. It's backed
+[03:15] by any database you really want to. What
+[03:17] we're operating now is just a client.
+[03:20] It's a thin interface to an API which
+[03:23] has the actual agent that's durable
+[03:25] inside of it. This was the topic of last
+[03:27] week's video where we looked at an
+[03:29] on-call durable agent that was also
+[03:31] proactive. And guess what? We're focused
+[03:33] on it here again because this is a
+[03:35] high-signal agentic piece of technology
+[03:38] that's critical for advancing from in
+[03:40] the loop, which is what this is, to near
+[03:41] the loop, which is what this is, to
+[03:43] fully out the loop. Thanks to
+[03:45] intelligence going up and cost going
+[03:47] down. I've had this running for over a
+[03:49] day now. Just non-stop gathering news,
+[03:52] filtering it out, using Jev as a key
+[03:55] part of the pipeline for gating the more
+[03:57] expensive language model calls. Even
+[04:00] though this is a very cheap Luna model,
+[04:02] it's still a language model call that's
+[04:04] chewing up tokens, compute, and
+[04:06] therefore cash. So, we put Jev in front
+[04:08] to gate, to filter, to look for the
+[04:10] right pieces of information. And this
+[04:12] allows us to smoothly transition from in
+[04:15] loop to out loop. The system is working
+[04:17] for me without me. So, pretty standard
+[04:19] UI. This is a standard modern user
+[04:21] interface that you're probably used to.
+[04:22] We have agent on the right or on the
+[04:24] left, and then we have the generative UI
+[04:26] in the other portion. You can see we
+[04:27] have a nice timeline here. We'll break
+[04:29] down the actual feature set here because
+[04:31] how something is built matters more than
+[04:33] what you're building. Because as you
+[04:35] know, code is now infinitely cheap,
+[04:37] infinitely copyable. The reverse
+[04:38] engineer anything trend is showing that.
+[04:41] Mathematicians losing their mind over
+[04:43] OpenAI's huge math proof dump is also
+[04:46] showing that. What matters now is your
+[04:48] taste, your judgment, and your ability
+[04:50] to architect unique systems with unique
+[04:52] properties. So, before we get to the
+[04:54] architecture of this durable news agent,
+[04:56] which looks for news that's actually
+[04:58] worth your attention. You can see we're
+[05:00] getting a lot of news on the Gemini 4
+[05:02] Argon release. That's the fresh new hot
+[05:04] thing coming in right now. And my agent
+[05:06] pulled this to me. I didn't have to go
+[05:08] find it. But before we dive into the
+[05:09] architecture, I just want to talk about
+[05:10] like, how did I apply my taste, my
+[05:12] expertise to drive what I built here?
+[05:19] Mentally, I separate new information
+[05:21] into three buckets: hype, facts, and
+[05:24] signal. Hype usually means there's too
+[05:26] much attention and topic growth is
+[05:28] driven by unfounded excitement because
+[05:30] the topic itself is arousing or
+[05:32] attention-grabbing by nature. So, this
+[05:34] is hype. We then have facts. And facts
+[05:37] are objectively true. This is much
+[05:39] closer to what I call signal, but it's
+[05:41] important to differentiate signal from
+[05:43] fact because not all facts are useful
+[05:45] information you can actually act on. For
+[05:48] instance, OpenAI dropped that huge set
+[05:50] of math proofs. Can you, an engineer,
+[05:52] actually act on that? Not really, but it
+[05:54] is still awesome. It is still a fact of
+[05:56] the matter. There's a new wave of
+[05:58] mathematics coming that will likely
+[06:00] unlock things in the future for you and
+[06:02] I and for the world. This is a fact
+[06:04] though. It's not really signal right
+[06:06] now. And then there's signal. Signal is
+[06:08] something you can actually act on. For
+[06:10] instance, Gemini 4 Argon is a new
+[06:12] language model. It's state of the art.
+[06:13] You and I can use this right now. It was
+[06:16] announced like a week ago or something,
+[06:17] but this has just been rolled out at the
+[06:19] time of filming. And now this is an
+[06:21] actual piece of information you and I
+[06:22] can act on. So, this is how I like to
+[06:24] separate information in the age of AI to
+[06:26] filter out the noise. So, with this
+[06:28] applied taste, aka judgment, I can now
+[06:31] build an architecture to help me do
+[06:32] that. And obviously you're seeing the
+[06:33] end result here, but I want to walk you
+[06:35] through why software engineering is
+[06:38] still so important and having an
+[06:39] opinion, having a product vision still
+[06:42] matters. In fact, it matters more than
+[06:44] ever since everyone is now copying,
+[06:46] reverse engineering, and slopping out
+[06:48] anything they can think of. What does
+[06:50] the architecture of this look like?
+[06:51] Because now we have a goal, now we have
+[06:53] a concrete opinion about what the result
+[06:55] should look like. Now we can dive in and
+[06:56] answer like, what's the architecture?
+[07:02] So, the architecture for the system
+[07:04] looks like this. This is the whole
+[07:05] system. We have cron firing off our API
+[07:08] and our API is our news desk Pi Durable
+[07:11] Agent. We dove into the details of Pi
+[07:14] Durable Agent in our last week's video.
+[07:16] That one's getting a lot of attention
+[07:17] for good reason. I think a lot of
+[07:18] engineers are understanding this concept
+[07:20] of proactive agents. It's so important.
+[07:22] I have to talk about it again
+[07:24] back-to-back week after week. This is
+[07:26] high signal. Pi Durable lets us create
+[07:29] durable tasks. This is all triggered via
+[07:31] an API. So, everything is isolated. And
+[07:33] again, this is my Mac mini device. I can
+[07:35] deploy this anywhere. In fact, I have.
+[07:38] If we jump back, you can see this is
+[07:39] operating on a local URL, but this one
+[07:42] here is operating on a exc.dev agent
+[07:45] sandbox. As you can see, this one's
+[07:47] focused on muse. These are different
+[07:48] sets of information. It's asking me some
+[07:50] questions. The system is prompting me.
+[07:53] This is what's called a two-way prompt
+[07:54] system. I can prompt it, it can prompt
+[07:56] me, and it's creating this own unique
+[07:58] feed that's completely separate from my
+[08:00] feed on my M4, which is more fine-tuned.
+[08:02] So, you can see I'm testing on my M4 and
+[08:04] on an exc.dev sandbox. So, again,
+[08:06] detached clients is the theme here with
+[08:08] durable agents. And this thing is just
+[08:10] going to keep running, as you can see
+[08:12] here. And as you saw, we have the
+[08:14] terminal user interface. We can access
+[08:15] this via CLI, and we can access it via a
+[08:18] browser. So, this is the whole system.
+[08:20] It's a client-server application, where
+[08:22] we've separated out several of the
+[08:24] moving parts. So, what does that look
+[08:26] like?
+[08:30] This is built in layers. So, we have our
+[08:32] SQLite databases. We have Pi Durable.
+[08:35] Shoutout Mario and Armin. We then have a
+[08:37] durable agent. This is a custom
+[08:38] implementation of it, which then is
+[08:40] exposed via an API. We also have Jev,
+[08:43] which is doing a lot of classification,
+[08:44] a lot of filtering, a lot of ranking at
+[08:46] dirt-cheap prices. And then we have the
+[08:48] actual SDK, which our browser, our TUI,
+[08:50] our cron, and our CLI uses. What we're
+[08:53] doing here is building an architecture
+[08:55] that can be redeployed across many
+[08:57] different use cases in a proactive
+[08:59] agent-first way. That's the idea.
+[09:01] Whenever I sit down to build something,
+[09:02] it's not just about the thing. It's
+[09:04] about how it's built. It's about the
+[09:06] architecture around it. There's more and
+[09:08] more fear, uncertainty, and doubt in the
+[09:10] age of AI. More than ever now, code
+[09:12] generation is solved. People are saying
+[09:14] mathematics is solved. People are saying
+[09:16] software engineering is solved.
+[09:18] >> [laughter]
+[09:18] >> I completely disagree with this. We're
+[09:20] still going to need great practitioners
+[09:23] who put their hands on the keyboard to
+[09:25] drive the right results, to use the
+[09:27] right architecture, to ask the
+[09:28] questions, and to guide the language
+[09:31] models. Obviously, there's levels to
+[09:32] that. That's what we're always focused
+[09:34] on here on the Endy Dev Dan channel, but
+[09:35] like, don't lose faith in your
+[09:37] engineering skills. You've been doing
+[09:38] this for years. Many of you have been
+[09:40] engineering like I have. I've been
+[09:42] engineering for over 15 years. And
+[09:44] agents have now come onto the scene.
+[09:45] This is a new tool. That's all it is.
+[09:47] Use it as a new tool. Don't let it scare
+[09:49] the out of you and prevent you from
+[09:51] actually getting things done because you
+[09:53] can do more than ever now if you're
+[09:55] using the right tools. So, you can see
+[09:56] here we're coming in with some dead
+[09:58] sweeps. This thing runs every single
+[09:59] minute, so there's a lot it's pulling
+[10:01] in. But, back to the architecture. It's
+[10:03] built in layers and this unlocks this
+[10:05] type of system. This is how this works.
+[10:07] This is the AI developer workflow. On
+[10:09] this top-level new sweep, we then have a
+[10:10] task that runs. We gather, we gate, we
+[10:12] dedupe, and then we rank. And then we
+[10:14] have n candidates that come back, and
+[10:16] then our durable agent decides what to
+[10:19] actually render based on the rankings
+[10:21] that come back. So, that's the
+[10:22] architecture. That's how it works. And
+[10:24] we're pretty much using Jev at every
+[10:25] point in this.
+[10:29] This is a great way to classify large
+[10:31] amounts of text in many, many different
+[10:33] ways. And Jev is, of course, as you
+[10:35] know, dirt cheap. It's super reliable.
+[10:37] It's very fast. Roll your own if you
+[10:39] want. I am saving a crap ton of time by
+[10:41] just using out of the box Jev. It's a
+[10:44] great generic classifier. But, you can
+[10:45] see here, this is a very powerful way to
+[10:48] process large amounts of information at
+[10:51] sub half-second times per call. You can
+[10:54] see how we're using this here. Is this
+[10:55] news piece relevant? Is it a dupe? Is it
+[10:57] the same story? If you can't hash it,
+[10:59] this is a great way to fall back from
+[11:01] hashes. Of course, you want to do a
+[11:02] content hash first. Then, of course, you
+[11:04] know, research claim. Is this actually
+[11:06] fact? We can put together many sources
+[11:08] and determine if there's some overlap.
+[11:10] And then we do actual presentation. The
+[11:12] big idea here, the meta lesson, the meta
+[11:14] idea behind what I'm showing you here is
+[11:16] this.
+[11:20] We want to move from in loop to near
+[11:22] loop to out loop. This is the name of
+[11:24] the game for agentic engineers because
+[11:26] this is a measure of your skill. It's
+[11:28] not about sitting in the terminal
+[11:29] prompting back and forth. You've heard
+[11:31] me say that a million times now. The
+[11:32] real edge now is move from in to near to
+[11:36] out. And this is a direct measure of
+[11:39] your agentic engineering skill. Because
+[11:40] what does it mean? It means that you
+[11:42] have more autonomous systems working for
+[11:44] you all the time, doing real work for
+[11:45] you all the time. Of course, you know,
+[11:47] the tokens you use have to be useful.
+[11:49] The code you write, the things that run
+[11:51] have to be useful. As you do this, as
+[11:53] you make this transition, which is what
+[11:54] it's really all about, this is what it
+[11:57] looks like to increase your agentic
+[11:58] engineering skill. It's more threads of
+[12:00] work working for you on your behalf all
+[12:03] the time, around the clock. This is the
+[12:04] new mental model I'm using and
+[12:06] recommending to engineers in the loop,
+[12:07] near the loop, and then out the loop
+[12:09] completely. And I hope you can see how
+[12:11] this system is a direct replication of
+[12:13] that. First, you're in, then you're
+[12:15] near, and then you're out. Let me talk
+[12:17] about some of the actual feature sets of
+[12:20] the durable news agent. Let's move from
+[12:22] engineering and architecture to hands-on
+[12:24] [music] product.
+[12:29] So, what are the features of this tool?
+[12:30] One key thing everyone should be doing
+[12:32] in their software now is creating a data
+[12:34] flywheel. It's creating a feedback loop
+[12:36] between your users' inputs and the way
+[12:38] your code plus agents takes that
+[12:40] feedback and improves the product. News
+[12:43] and gathering information and filtering
+[12:45] through the noise is a great example for
+[12:46] this. There's a reason I'm targeting
+[12:48] this and I'm improving my agentic
+[12:50] engineering by using this use case
+[12:51] specifically. It's because I can come in
+[12:53] now and upvote or downvote something.
+[12:55] This is real information. This is real
+[12:57] signal and fact that I care about. First
+[12:58] off, I can just thumbs it up, and then I
+[13:00] can upvote the fact that this model
+[13:03] release has happened. Of course, if I
+[13:04] click this, it'll open up the full link
+[13:06] and we can read it and dive into it. We
+[13:07] can see how this is getting trust me,
+[13:08] bro, benchmarked right here, and I'm
+[13:10] sure the actual post goes a lot further.
+[13:13] If we check out the Google DeepMind
+[13:14] official release from 35 minutes ago, we
+[13:17] can go ahead and dive into this and see
+[13:19] the actual news on this release. I'm
+[13:21] filming this at the perfect time. Our
+[13:23] ProActivation picked this up and is now
+[13:25] filling the news feed with this. It's
+[13:26] fantastic. We'll see if that model
+[13:28] actually gives us anything unique, but
+[13:30] this is signal that I care about. You
+[13:31] can see that our Jev classifier said,
+[13:34] "Yep, this is mostly signal. There's a
+[13:35] lot of fact here. It's a new model
+[13:37] release."
+[13:38] There's nothing to argue there. And then
+[13:40] some hype, which is kind of true, 66
+[13:42] hype out of 100 because these model labs
+[13:44] always have to hype up their release.
+[13:45] So, you know, this makes a lot of sense.
+[13:47] So, that's one of the key features I can
+[13:48] thumbs this up and I can reinforce back
+[13:51] into the ranking algorithms that this is
+[13:53] important. Let me do this. I'll pass
+[13:55] this in and I'll say increase the weight
+[13:58] of Gemini. If it doesn't exist as a
+[14:01] keyword, add it. So, I'm going to talk
+[14:03] directly to my agent. I'm going to queue
+[14:04] this message. It's completing its sweep,
+[14:06] so my message should pop up here in just
+[14:09] a moment. Check. There we go. Good. And
+[14:11] there's my message. I can quickly
+[14:13] reference that card. Increase the weight
+[14:14] of Gemini. If it doesn't exist, add a
+[14:16] keyword for it. And so, it looks like
+[14:17] there is a task queuing here. There we
+[14:19] go. It's reading my taste files. This is
+[14:22] all the settings. So, in the settings
+[14:23] here, you can see we have all the
+[14:25] keywords that I'm focused on and we have
+[14:27] the links that our system normally uses.
+[14:30] This is all available here to be tuned
+[14:31] and customized. Pulling in information
+[14:33] is all about weighting it. What do you
+[14:35] care about the most? The system lets me
+[14:37] weight, increase, decrease the signal
+[14:39] for things. You can see here my agent
+[14:41] edited that keyword. It raised the
+[14:42] existing Gemini keyword topic from 1.2
+[14:45] to 1.3. So, in all subsequent runs, it
+[14:47] knows that this is an important keyword
+[14:49] that I personally care about. So, what
+[14:51] is this application really doing here,
+[14:53] right? This is a high signal news feed
+[14:55] curated to my taste driven by a feedback
+[14:58] loop between myself and my durable
+[15:00] agents, specifically my durable agent
+[15:02] architecture. So, you can see here we
+[15:04] got one new piece of news sent in. And
+[15:06] we can see this is banking watchdogs
+[15:08] ramp up AI scrutiny. This is some
+[15:09] signal, some fact. If I want to, I can
+[15:11] get rid of this. There's maybe some
+[15:13] important information here. I'm just
+[15:14] going to go ahead and downvote that, get
+[15:15] that out of my stream. But this is a
+[15:16] really important feature. I can increase
+[15:18] and decrease the signal arbitrarily of
+[15:21] what matters. Your signal, what you care
+[15:23] about, needs to be fine-tuned. You can
+[15:25] see a bunch of things that I mentioned
+[15:27] here. All these are, you know, if you've
+[15:28] been with the channel, they're all
+[15:29] obvious topics and keywords that I focus
+[15:32] on a lot on the channel. We also have
+[15:34] links, news sources. I'm just starting
+[15:36] to to tweak and tune the weights of my
+[15:38] actual pages. Shout out Hacker News,
+[15:41] Latent Space, Pi, Cloud Code, Anthropic
+[15:43] Codex, OpenAI, Simon Willison. And this
+[15:46] is all fueled by an agent that has a
+[15:48] unique set of tools. So, this is
+[15:50] important for a lot of engineers really
+[15:52] stuck in the engineering world. You
+[15:53] should be building products with agents
+[15:55] with unique actions. They should be able
+[15:57] to do unique things that differentiate
+[15:59] your product. This is a durable news
+[16:01] agent. All it does, it's not reading
+[16:03] files, it's not changing code. It has
+[16:05] specific tools to operate and to filter
+[16:07] and to curate news. So, we have run the
+[16:10] news sweep, list candidates, read items,
+[16:12] search web, scrape URL, research items,
+[16:14] Jev classify. Huge shout out to Jev and
+[16:16] the Type Safe team. Present news,
+[16:18] present timeline, ask taste, so on and
+[16:20] so forth. All harness engineered tools
+[16:22] that I built with an N loop agent to get
+[16:25] the system up and running. I'm building
+[16:27] the system that builds a system. That's
+[16:28] the reason you go into the loop. You're
+[16:30] working on a system that's going to work
+[16:32] for you with less of your attention. You
+[16:34] want to be near the loop or out the loop
+[16:36] and spending less time in the loop.
+[16:38] That's the big meta theme. So, we have a
+[16:40] nice set of tools here and we've got two
+[16:41] new news blocks that just came in. Two
+[16:43] nice new Hacker News drops. And you can
+[16:46] see the keyword on the left. We've got
+[16:47] coding agents and agentic engineering.
+[16:49] This looks great. And the agent is just
+[16:50] going to keep running. This tick is on
+[16:52] every minute. It's going to look for a
+[16:53] maximum seven cards. It's going to Jev
+[16:55] rank them. So, you can see, you know,
+[16:57] this system is very very powerful. It's
+[16:58] a great application. The durable agent,
+[17:01] specifically I'm using Pi Durable as
+[17:03] mentioned in last week's video. If you
+[17:04] want to learn more about their specific
+[17:06] implementation, which is what I'm using
+[17:07] under the hood. Big shout out to the Pi
+[17:09] agent, my favorite open source agentic
+[17:11] coding tool. Because guess what? I'm in
+[17:13] control. I can customize it and I can
+[17:15] extend it however I want. It's the same
+[17:16] with their durable agent implementation.
+[17:19] And this is the new mental shift that I
+[17:20] think durable agents unlock. They allow
+[17:22] proactive agents that really create this
+[17:25] middle step for you. It makes it easier
+[17:27] to transition from in loop to out loop,
+[17:30] which is the central idea behind the
+[17:32] phase three [music] agentic engineering
+[17:34] product I'm building right now for
+[17:36] advanced engineers using agents every
+[17:38] single [music] day. Link in the
+[17:39] description for that. Early sign up is
+[17:41] available. Don't miss that because this
+[17:43] next leap moving to out loop is truly a
+[17:46] compounding, dare I say exponential
+[17:48] opportunity, an exponential leap in your
+[17:50] engineering capability. As you can kind
+[17:52] of see, there's hints of it already by
+[17:54] just understanding and internalizing
+[17:56] near the loop agentic engineering.
+[17:57] First, you're in the loop, then you're
+[17:59] near the loop, so you're spending less
+[18:00] time, and then you're completely out the
+[18:02] loop. And at every level, your ability
+[18:04] to engineer, this is not vibing, this is
+[18:07] not vibe slapping, your ability to
+[18:08] agentic engineer the system becomes a
+[18:10] higher and higher requirement to
+[18:12] actually build something useful here
+[18:14] that can work without you. Same for near
+[18:16] the loop. So, this is a new mental
+[18:17] framework, the new mental model I'm
+[18:19] recommending to engineers, and you know,
+[18:20] this is the way forward because this is
+[18:22] going to offer you the most leverage,
+[18:24] but you have to make the transition in,
+[18:26] near, out.
+[18:30] The lower level core theme here is
+[18:33] durable agents are powerful. This
+[18:35] durable news agent and last week's on
+[18:37] call incident response agent, they're
+[18:38] both really concrete examples of what it
+[18:41] looks like to build an agentic system in
+[18:43] a really concrete way with a concrete
+[18:45] outcomes that operate for you without
+[18:48] you. And so, you can see the system will
+[18:49] just continue. We've got all the
+[18:50] executions and all the traces mapped out
+[18:53] that we can dive into at any point in
+[18:54] time. We've got a nice set of settings
+[18:57] with weighted keywords that we can up
+[19:00] and down vote. The durable agent is on
+[19:02] my m4, it's on my exe.dev cloud sandbox.
+[19:05] Great, we've got a nice jab hit here.
+[19:08] I'm going to be tuning and tweaking this
+[19:09] algorithm. Linked in the description for
+[19:11] you is going to be this durable news
+[19:13] agent system. And the whole point here
+[19:15] is to really help you fast-track that
+[19:17] movement between in the loop, near the
+[19:19] loop, and out the loop. So, take this,
+[19:21] tweak it, make it your own. I'm not
+[19:22] going to give you
+[19:23] >> [laughter]
+[19:24] >> my settings. You're going to have to
+[19:25] choose your own settings. Feel free to,
+[19:26] you know, take a snapshot, try to get it
+[19:28] into the system as much as you want here
+[19:29] with some of the settings I'm playing
+[19:30] with, but there are a lot of
+[19:31] improvements we made here. I'm really
+[19:33] happy with the early implementations of
+[19:34] this. I'm going to be continuing to
+[19:36] build on this. Again, link in the
+[19:37] description. You want to be thinking
+[19:39] about how you can build agents that work
+[19:41] for you without you. Proactive agents
+[19:43] don't wait for you to work. They work
+[19:44] for you, then wait. On the channel,
+[19:46] we're constantly pushing toward out-loop
+[19:49] agentic engineering. If you haven't
+[19:50] already, definitely sign up for the
+[19:52] phase three agentic engineering product
+[19:55] I'm building right now. Hands-on, this
+[19:57] is for the mid to senior correct agentic
+[20:00] engineer that's on the edge. Here, we're
+[20:02] focused purely on out-loop phase three
+[20:05] agentic engineering. All phase two
+[20:07] tactical agentic coding members will
+[20:09] receive a discount. So, if you're
+[20:11] interested in that, check it out. That's
+[20:12] phase two agentic coding. Here, we're
+[20:14] going to be focused purely on the next
+[20:16] phase, the next massive leap. Pre-email
+[20:19] sign-up is available now. In a couple
+[20:21] weeks, it'll be pre-sell. And at the end
+[20:23] of November, it'll be launch time. It'll
+[20:25] be go time. I can't wait to share more
+[20:27] of this with you. Link in the
+[20:28] description. Get signed up. The next
+[20:30] leap is going to be massive because once
+[20:32] your out-loop system starts compounding
+[20:34] for you, starts working for you, it's
+[20:36] not going to stop. And durable agents
+[20:38] are a key step in that direction. In AI
+[20:40] 3, we're going to take that much
+[20:42] further. I've got the durable news agent
+[20:44] linked for you in the description. Check
+[20:46] this out, make it your own, tweak it,
+[20:47] add more API providers, add more links
+[20:50] so that you're filtering out all the
+[20:52] junk coming toward you in the age of AI
+[20:55] to just the most important pieces. You
+[20:57] can see here, I've got a decent set of
+[20:58] information coming my way, but lots to
+[21:00] improve, lots to tweak here. Costs have
+[21:02] barely moved. I'm paying close attention
+[21:04] to the tokenomics of the system so that
+[21:06] I don't go broke in generating the
+[21:08] value. Jev and cheap language models
+[21:10] like Luna and Haiku 5.5 are going to be
+[21:13] key in that, as well as other models
+[21:14] like Deep Seek V4.1 Flash. I highly
+[21:17] recommend you start transitioning from
+[21:19] in-loop to near-loop to out-loop. You
+[21:21] can see my terminal client still
+[21:23] completely synced up. We can say what
+[21:25] was the last entry you added, and it's
+[21:27] going to be completely synced with the
+[21:29] browser. It's currently queued till
+[21:31] after the sweep runs. There we go. What
+[21:33] was the last entry you added? We got a
+[21:35] new post from Anthropic saying code
+[21:37] merges have rose nearly tenfold since
+[21:40] May. It got correctly categorized as
+[21:42] hype. Also some fact, some signal, but
+[21:44] mostly hype. I completely agree with
+[21:46] that. Thumbs up on that. The models
+[21:47] continue. If you want to learn more
+[21:49] about productive agents, check out the
+[21:50] link in the description to check out
+[21:52] last week's video where we use Py
+[21:54] Durable to build an on-call incident
+[21:57] response agent. Productive agents are
+[21:59] the future of engineering. You want
+[22:00] agents that are working for you [music]
+[22:01] in the background and waiting for your
+[22:03] feedback, creating a data flywheel for
+[22:05] both you and your users of [music] your
+[22:07] products. I'm building out more and more
+[22:09] of these all over my stacks, all over my
+[22:11] devices, in the cloud, in [music]
+[22:12] products, because the signal here is
+[22:15] high. The signal here is rich. I
+[22:17] recommend you do the same. Definitely
+[22:18] sign up for the phase three product if
+[22:20] you haven't, and keep your eye on the
+[22:21] signal. [music] If you made it to the
+[22:23] end, let the YouTube algorithm know this
+[22:25] is signal you care about. [music] You
+[22:26] know where to find me every single
+[22:28] Monday. Stay focused and keep building.

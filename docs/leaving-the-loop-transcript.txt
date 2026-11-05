@@ -1,0 +1,779 @@
+[00:00] Look, AI agents make fewer mistakes than
+[00:02] you or I on our best days as engineers.
+[00:05] Don't take my word for it. Give Opus 5.5
+[00:07] a hard task and read the trace.
+[00:09] Seriously, read the trace. It now looks
+[00:11] like an alien engineer running the most
+[00:14] obscene bash commands and tool call
+[00:16] combinations, and it's not a one-off.
+[00:19] Opus and Astra do this
+[00:20] back-to-back-to-back. You and I are
+[00:22] smart, so let's ask smart questions. If
+[00:25] the agent is a better programmer inside
+[00:27] the loop, why are you still sitting in
+[00:30] it? Recent intelligence has unlocked a
+[00:32] new level of capability that the best
+[00:35] engineers are obsessing over. If you
+[00:37] want to know what this new level is that
+[00:39] you can unlock, you're watching the
+[00:41] right video. I've been working with
+[00:43] language models and agents since it was
+[00:45] first possible. Before that, I trained
+[00:47] classic scikit-learn models. I have 15
+[00:50] plus years of software engineering
+[00:52] experience underneath all of it, and
+[00:54] that's exactly why I'm telling you this.
+[00:56] Experience doesn't auto unlock this new
+[00:59] level in the age of AI. Your experience
+[01:01] pays off if you change how you operate.
+[01:05] Not all of us will make this leap. Why?
+[01:07] Because we're doing things the way they
+[01:09] were done yesterday. What are Opus,
+[01:11] Astra, and DeepSeek? These are new
+[01:13] tools, nothing more, nothing less. But
+[01:15] stack enough of them in the right
+[01:17] architecture, and you can change what's
+[01:19] possible by changing how you operate.
+[01:22] And you've been doing this. Instead of
+[01:24] writing the skill yourself, you taught
+[01:25] your agent how to write your skill. Meta
+[01:27] skills, check. Instead of running 10
+[01:29] agents yourself, you ran [music] one
+[01:31] agent to prompt nine. Orchestration,
+[01:33] check. Instead of being stuck in the
+[01:35] loop, realizing you can build [music]
+[01:37] the system that builds the system. And
+[01:39] this begins the critical journey from
+[01:41] human in the loop to near the loop to
+[01:44] finally out the loop. [music] That's the
+[01:46] central topic for this video. I'll show
+[01:48] you three of many near-loop agents I'm
+[01:50] running [music] right now that do real
+[01:52] work before I sit down. And by the end
+[01:54] of this video, you'll know exactly how
+[01:56] to level up your agentic [music]
+[01:58] engineering. Stick around and let's
+[02:00] understand in loop, near loop, out loop.
+[02:07] What if your agents never stopped?
+[02:14] The big question is, what can run
+[02:17] without you next? This is the guiding
+[02:18] question. This moves us from in loop to
+[02:20] near the loop to out the loop. We are
+[02:22] constantly building the system that
+[02:24] builds the system. That's the theme
+[02:25] here. Prompt, click, cron. What do I
+[02:27] mean by this? Let's break it down. When
+[02:29] you're in the loop, it's you and the
+[02:30] terminal. You're constantly applying
+[02:32] your attention to write prompts. When
+[02:34] you're near the loop, you're clicking,
+[02:36] you're responding, you're giving advice,
+[02:38] you're giving feedback. When you're out
+[02:39] the loop, it's full cron. You have
+[02:41] stepped away. You are not a requirement
+[02:43] anymore. And this is the new mental
+[02:46] model for understanding your agentic
+[02:48] engineering skill by the results you can
+[02:50] achieve. If you're improving, you're
+[02:52] building more systems that don't need
+[02:54] you in the loop. You're building more
+[02:56] near the loop systems and more out the
+[02:57] loop systems. So, why is in the loop
+[03:00] such a problem? Let's talk about it.
+[03:02] What's wrong with being in the loop? The
+[03:03] problem with being in the loop is that
+[03:04] you and I, as you know, are the
+[03:06] limitation. You and I are now the
+[03:09] bottleneck. Our agents can do so much
+[03:11] more if we have the right skills, if we
+[03:13] have the right tools, technology, and if
+[03:14] we're operating the right way. This
+[03:17] threshold, this new level of capability,
+[03:19] requires you to change how you're
+[03:21] operating because you and I are the
+[03:23] bottleneck. And the hard truth here is
+[03:25] 80% or more of all the work we're doing
+[03:28] right now can run without you, can run
+[03:30] without me with the right system in
+[03:32] place. So, the next question is, what is
+[03:34] this system? And what is this way of
+[03:36] thinking? And as you know, you know,
+[03:37] based on the title,
+[03:39] it's out loop. But then another problem
+[03:41] arises very quickly. Jumping right from
+[03:43] in loop to out loop is hard. So, what do
+[03:45] we do? We create this middle step, this
+[03:47] transition in between fully required
+[03:51] butts and seats, you using all your
+[03:53] attention on the next prompt, you
+[03:54] watching your agent, jumping straight to
+[03:56] out loop is hard and challenging. So,
+[03:58] what do we do? We move near the loop. We
+[04:00] incrementally work toward the future we
+[04:02] want to create where our systems can
+[04:04] operate for us without us by first
+[04:06] stepping away and then stepping in when
+[04:09] we're required. So, the big difference
+[04:11] is are you being proactive or are you
+[04:13] being reactive? You want to be
+[04:15] proactive. You want to build systems
+[04:16] that start working for you before you
+[04:19] sit down. And we've been covering these
+[04:21] on the channel week after week, but it
+[04:22] looks like this. Instead of you being
+[04:24] the trigger, you have a concrete event.
+[04:27] Think webhook. Think cron. Think user
+[04:30] action near interface. Think Jev
+[04:32] classifying an event from your log
+[04:34] stream. There are a million other ways
+[04:37] to kick off your agent. Why are you
+[04:38] still the main one? That's phase one and
+[04:41] phase two agentic coding. That's in
+[04:44] loop. That's yesterday's advantage.
+[04:46] That's fully saturated. You want to
+[04:48] switch to thinking about pro- active
+[04:50] agents, proactive agent systems. The
+[04:53] thing that they need kicks them off. If
+[04:55] you haven't figured it out yet, the
+[04:56] thing they need isn't you. It's
+[04:58] information. And it's the right
+[05:00] information. And that's the job now of
+[05:02] agentic engineers. Get the right agent
+[05:04] the right information.
+[05:11] Why do this? Who cares about proactive
+[05:13] agents? Why am I bringing this up on the
+[05:14] channel for the third time in a row?
+[05:15] It's because work happens before and
+[05:18] after you check in. This is the result
+[05:19] of investing, putting time in, and
+[05:21] creating a system that only requires you
+[05:23] to be near the loop, okay, which is
+[05:25] substantially different than in the
+[05:27] loop. But it's still close enough that
+[05:29] it doesn't feel super disconnected.
+[05:30] Let's walk through a real use case. The
+[05:31] classic one we'll be looking at is some
+[05:33] event comes in to your event stream, to
+[05:34] your log stream. Triage happens. You'll
+[05:37] use Jev to classify the event. You
+[05:38] prepare the patch. And then your agents
+[05:40] present it to you. This is where you
+[05:42] check in. You make a concrete decision.
+[05:44] And then guess what? You can walk away
+[05:45] because you've already built it into the
+[05:47] system what happens next, right? You
+[05:48] have an AI developer workflow executing
+[05:50] on your behalf. Detect event, triage,
+[05:52] patch, ask, apply the change, verify the
+[05:55] change, results saved. This is human
+[05:57] near the loop. Work happens before and
+[05:59] after you check in. Very, very valuable.
+[06:01] So, what are the core elements you need
+[06:03] to understand to build these near loop
+[06:05] systems? Again, themes on the channel.
+[06:07] We've been talking about these week
+[06:08] after week after week, because they
+[06:09] matter so much right now. This is high
+[06:11] signal information. Durable agents is
+[06:13] the first item. Why do we need durable
+[06:15] agents? Why can't we just throw classic
+[06:17] pie, classic cloud code, classic code X
+[06:19] at this problem? It's because we need to
+[06:20] survive crashes, restarts, closed
+[06:22] laptops. Speaking of closed laptops, the
+[06:24] big up level here is a classic theme
+[06:27] that's permeating throughout the
+[06:28] software industry. You want to put your
+[06:30] agent in their own sandbox. You want to
+[06:32] give them their own CPU compute. And for
+[06:34] the labs, also GPU compute. Why is this?
+[06:37] It's because they're always on. It's
+[06:39] isolated. It's safe, if you're
+[06:40] sandboxing properly. And most
+[06:42] importantly, it's autonomous. You're
+[06:44] scaling your agents into their own
+[06:45] environments where they can perform like
+[06:47] you, because they have all the tools you
+[06:49] have. And the most important tool is a
+[06:51] full computer. So, that's not it. This
+[06:53] doesn't make a near loop agent. You need
+[06:55] something else. You need a clear API
+[06:58] layer, so that you can connect a variety
+[07:00] of triggers to actually activate the
+[07:02] system. Again, there are a million ways
+[07:05] to kick off your agent. Why are you
+[07:06] still the main one? Asking yourself that
+[07:09] question, it lets you design the system
+[07:11] where you can move from in the loop to
+[07:13] near the loop. And they're all exactly
+[07:15] what you would expect. Cron triggers,
+[07:16] log events, tickets, right? User
+[07:18] interfaces, drag and drop image events.
+[07:21] And then of course, CLI agents working
+[07:23] on their own time, doing their own
+[07:25] thing, kicking off your near loop
+[07:26] system. So, this is what it takes. These
+[07:28] are the core elements of a near loop
+[07:31] system. This creates something really
+[07:32] powerful once you build it out. The
+[07:34] thing that really makes it a step
+[07:36] change, a level up in your capacity, is
+[07:38] that a durable agent plus a trigger in a
+[07:40] sandbox gives you a proactive agent.
+[07:43] This agent does not wait for you to
+[07:45] work, it works for you then waits. This
+[07:47] is a massively different level of
+[07:50] engineering results you can achieve now
+[07:52] with this architecture. Try to have a
+[07:54] vibe coder vibe code this, they won't be
+[07:55] able to. That's why GrokBot, that's why
+[07:58] dots, that's why Claud's co-work and all
+[08:00] their infrastructure exists is because
+[08:02] they're trying to commoditize this for
+[08:04] the average user and frankly for some
+[08:06] lazy engineers. That's okay if you're
+[08:08] one of them. I will say though this is
+[08:10] technology I highly recommend you own
+[08:11] because this is going to be a key part
+[08:13] of what it means to engineer massively
+[08:16] leveraged results in your favor. Again,
+[08:18] durable agents persist. This is what
+[08:20] makes them so powerful. They persist and
+[08:22] that means that they can ask you things,
+[08:24] they can survive restarts, and then they
+[08:26] can get the job done fully. But they
+[08:28] need to be keeping track of everything
+[08:30] in a repeat basis. Durable agents
+[08:32] require memory. Your normal in-the-loop
+[08:34] agents will not cut it for systems like
+[08:36] this. Hope that's clear.
+[08:42] Once you get these up and running they
+[08:43] become really powerful. So incident
+[08:45] response agent, this is something we
+[08:46] covered on the channel. An incident
+[08:48] comes in, your agents then run a
+[08:50] clear-cut and available workflow, a
+[08:52] workflow that you used to run yourself,
+[08:54] a developer workflow. If you're the
+[08:56] incident response engineer on call, you
+[08:58] detect, you investigate, you root cause
+[09:00] analysis, you fix it, and then you prep
+[09:02] for review. The difference is now you
+[09:04] can build a proactive agent inside a
+[09:06] near-loop system to do this on your
+[09:07] behalf. And then guess what? You are
+[09:09] then just the reviewer, you review the
+[09:11] fix, and then you deploy it. This is not
+[09:13] pie-in-the-sky information. This is what
+[09:15] we cover on the channel week after week.
+[09:17] Here is the real UI that we looked at
+[09:19] for a mock example of what this system
+[09:21] looks like. It's a disconnected client
+[09:23] with streaming events. We're using Jev
+[09:25] to classify the events, and then our
+[09:27] on-call agent found the issue, and now
+[09:29] all you have to do is understand and
+[09:30] click deploy. I've been talking with
+[09:32] main engineers. They are actively
+[09:34] rolling this out right now because the
+[09:35] value prop is there. Proactive agents
+[09:38] can give you value right now. This is
+[09:40] real. This is tangible. Agent work
+[09:42] through, the AI developer workflow, it
+[09:44] waits for your approval, and it is using
+[09:46] Jev to judge every single row. There are
+[09:49] improvements to be made here. If you're
+[09:50] not getting 4xx or 5xx HTTP error codes,
+[09:54] you don't need Jev for that. What you do
+[09:55] need Jev for is to classify the
+[09:57] information very, very quickly to
+[09:59] understand, based on your system, if
+[10:01] it's an issue or not. Okay, so that's a
+[10:02] real example. What else? How else can
+[10:04] you use proactive agents? Last week, we
+[10:06] covered using Jev to filter out hype, to
+[10:09] analyze facts, and then to filter in
+[10:11] signal that we actually care about,
+[10:13] information you can act on. Many
+[10:16] engineers, you know, many content
+[10:18] creators, YouTubers, posters, media,
+[10:21] they just hand wave and talk about this
+[10:23] stuff.
+[10:24] >> [snorts]
+[10:24] >> I like to hand wave, literally,
+[10:26] >> [laughter]
+[10:26] >> and talk about this stuff, but I also
+[10:27] like to prove it so you can better
+[10:29] understand what's happening and what's
+[10:31] possible, so you can go beyond what your
+[10:33] competition can do, so you can actually
+[10:35] act on this information. We have done
+[10:37] this. This UI is real, and I can pull it
+[10:39] up right now. This is on a sandbox, and
+[10:41] this was actually on my M-core Mac mini
+[10:43] right here. If I go to IDD agents, there
+[10:45] we go. Hit enter here. You can see that
+[10:47] this is a durable agent that's on all
+[10:49] the time. It's working for me, and then
+[10:51] it waits for me. This has been on for a
+[10:53] week and a half now. I keep it on all
+[10:54] the time. I'm not going to turn it off
+[10:56] because it's constantly providing me
+[10:57] value. I can hop in here, ingest the
+[10:59] news at light speed. Information is
+[11:01] getting pulled to me. I'm not getting
+[11:02] clickbaited into anything because I'm
+[11:04] normalizing how I want to see the
+[11:06] information in a non-biased way. Again,
+[11:08] check out last week's video where we
+[11:09] covered the durable news agent, but you
+[11:11] can see, you know, real concrete
+[11:12] example. This is stuff I'm building
+[11:14] against right now. This is stuff I am
+[11:16] working with engineers to build all the
+[11:18] time. You can see here, Loom cycle
+[11:20] decision model scores 40 out of 40 on
+[11:22] prompt injections. Interesting. I'm
+[11:24] going to upvote that. I'm going to give
+[11:25] signal to my proactive agent so that it
+[11:27] continues to prompt me with questions it
+[11:30] has, and continue to reinforce the data
+[11:33] flywheel I'm building with this kind of
+[11:35] micro product. This is a key
+[11:36] distinction. The best engineers are
+[11:38] moving from building individual
+[11:40] engineering agents to really product
+[11:42] agents that focus on a specific use case
+[11:44] that outperform the default by miles.
+[11:47] So, this is one of many near loop
+[11:49] systems that I'm building aggressively
+[11:50] right now because again, it's going to
+[11:52] work for me without me and then I'll
+[11:54] come in, I'll extract value, I'll give
+[11:56] feedback and it's going to improve. Real
+[11:58] concrete result. Let me show you another
+[12:00] one that I haven't revealed on the
+[12:01] channel yet. This is new since the Jev
+[12:03] 1.14 was released. I'm dropping in UI
+[12:07] designs, I'm dropping in mock designs
+[12:09] and then a primitive RSI loop is
+[12:11] running. It's going to build against the
+[12:13] mock and compare over and over and over
+[12:16] until the UI matches the mock design I
+[12:18] passed in. It looks just like this. Fix
+[12:20] build screenshot Jev. It uses two or
+[12:22] more agents optionally. We're just
+[12:24] looking to pass a similarity threshold
+[12:26] for the UI, okay? And you know, I can
+[12:28] show this to you.
+[12:30] Right? This is real. Called the deep Jev
+[12:32] UI replicator and you can see here I
+[12:34] dropped in a screenshot of the phase
+[12:36] three agentic engineering product I'll
+[12:38] talk about at the end. You can see it's
+[12:40] looping, it's hill climbing on this
+[12:42] objective that I gave it and it's just
+[12:44] working and working and working. I can
+[12:46] change the model, I can change the
+[12:47] comparison agent, I can tweak the core
+[12:48] four of the system. You can't build
+[12:51] these systems without understanding the
+[12:52] core four context model prompt tools.
+[12:54] We'll talk about that in a second. Key
+[12:55] skills to know and to learn. Again, a
+[12:57] lot of channels they just try to
+[12:59] newsjack. This is real content, real
+[13:02] ideas that we talk about every week on
+[13:03] the channel. We are putting these ideas
+[13:05] into action to generate real value, real
+[13:08] alpha. Let me show you exactly what I
+[13:09] mean. Bam, here it is. This is on a
+[13:11] cloud sandbox, so this is not local
+[13:14] anywhere, this is in the cloud. You can
+[13:15] see here I had Astra mirror this UI, it
+[13:18] got a 86.1 match. I just drag and
+[13:21] dropped an image in and it looped over
+[13:23] this. You can see I have another one
+[13:24] here. Let's go to another example here
+[13:26] mirroring the phase three landing page.
+[13:28] You can see slowly he'll climb toward
+[13:30] this. Got a decent result here after
+[13:32] iteration three, and then it failed to
+[13:34] mirror even further. Okay, this was the
+[13:36] Sonic 5.5, so not bad. But you can see
+[13:38] here, you know, again, it's a system
+[13:40] that delivers me concrete results. I can
+[13:42] come in, ask for something, and then
+[13:43] leave. I walk away while it works. It
+[13:46] takes, you know, some 30 minutes for all
+[13:48] these iterations to run, to basically
+[13:50] recursively work toward an example.
+[13:52] These are all big ideas, big themes
+[13:54] we're talking about on the channel all
+[13:56] the time, week after week. The next leap
+[13:58] is here, and I'm going to do my best to
+[14:00] communicate it to you, the mid senior
+[14:02] plus level cracked engineer. This is
+[14:04] where it all leads, these powerful
+[14:06] systems. Let me make it super clear,
+[14:08] once again, that these are just clients.
+[14:10] Like when I connect to the browser, I
+[14:11] can connect to some of these via my
+[14:12] terminal or my phone, and they're all
+[14:14] backed by some sandbox. Because, again,
+[14:18] proactive agents are always on, they
+[14:19] don't turn off. Just like when you walk
+[14:22] away from a session, at the end of the
+[14:23] day, you close your clo- your code, you
+[14:25] close your codex, you close your pie,
+[14:26] it's done. The value you can get when
+[14:29] you build a system like this is immense.
+[14:32] There are other new, next level
+[14:33] problems, you know, next generation, but
+[14:36] all next emerge, but right now the goal
+[14:38] is to move from in loop to near loop to
+[14:41] out loop. And so the sandbox
+[14:42] architecture is really, really
+[14:44] important. You do not want your agents
+[14:45] to be limited [music] by your device.
+[14:52] Why do we build these durable agents?
+[14:54] These agents persist on the device. Why
+[14:56] do we need them? First off, they can be
+[14:58] proactive. They can start working before
+[15:00] you show up, before you wake up. They're
+[15:01] multi-client. Again, browser, terminal,
+[15:04] phone, anyone, anywhere can connect to
+[15:06] it. This is really important for
+[15:07] products. And then, of course,
+[15:08] multiplayer. You, product, design,
+[15:10] support, if you build and you give them
+[15:12] the right tool, they can hop into the
+[15:14] right agent to get the work done much,
+[15:16] much faster than they would otherwise.
+[15:18] Long-running. Durable agents survive
+[15:20] crashes, they survive restarts, and they
+[15:21] have to. They have to have this
+[15:23] property. And then finally, all this
+[15:25] builds up to the fact that this lets you
+[15:27] move near the loop. It removes the seat
+[15:29] from underneath your butt. Okay? You
+[15:31] don't have to be sitting in the dev
+[15:33] chair. And this is a big unlock. I hope
+[15:36] that's clear. So, what are the essential
+[15:38] skills to learn? It's the essentials.
+[15:39] Again, this is like our bread and butter
+[15:41] on the channel. Context model prompt
+[15:43] tool. This is the measure of how far you
+[15:45] can move out. You know, we've been
+[15:46] talking about this for literally years
+[15:49] on the channel. Context model prompt
+[15:50] tools. It all comes back to this. The
+[15:52] agent is made of these four. And you've
+[15:54] heard of all these skills, you've
+[15:55] learned and expanded on your abilities.
+[15:58] Most engineers, most content creators,
+[16:00] most people talking about agents,
+[16:02] they're just focused on this. This is a
+[16:04] lot of the earlier channel videos. We've
+[16:06] moved up a lot from this stuff.
+[16:08] Sometimes we jump back in and cover, you
+[16:10] know, some system prompt engineering or
+[16:11] some context engineering trick, or maybe
+[16:13] we'll cover a model if it's interesting
+[16:15] enough. But really, these are the new
+[16:16] lower-level primitives. The one that's
+[16:18] really worth a lot of attention and time
+[16:20] when you move to the mid and advanced
+[16:22] levels is really harness engineering.
+[16:23] Because it starts to move and wrap this
+[16:26] powerful intelligence in a system that
+[16:28] can outperform the baseline and do
+[16:30] really unique things. It's why I
+[16:32] constantly talk about the Pi coding
+[16:33] agent and Pi durable. It's because there
+[16:36] you can really expand and give your
+[16:38] agents more actions and customize the
+[16:41] results they can get. Specialization is
+[16:44] the advantage, and a lot of engineers
+[16:46] are really noticing this as everyone,
+[16:48] their mom, their brother, their sister,
+[16:49] their dad can prompt and build a air
+[16:51] quote application, right? Or reverse
+[16:53] engineer anything. The advantage then
+[16:55] becomes how can you specialize your
+[16:57] results? How can you build a system that
+[17:00] can do what others could not do? This is
+[17:02] where software engineers have a huge
+[17:04] advantage. That's the big idea.
+[17:05] Mastering your context engineering, your
+[17:07] tokenomics for the model you're
+[17:08] selecting. It needs to be performant
+[17:10] enough to get the job done, but not so
+[17:12] expensive that it breaks the bank. These
+[17:14] insanely subsidized subscriptions will
+[17:16] not last forever, so understand
+[17:18] tokenomics. Shout out deep seek. Then of
+[17:20] course, prompt engineering is how you
+[17:23] instruct your agent in the first place.
+[17:25] If you can't write a great system
+[17:26] prompt, if you're stuck relying on the
+[17:28] defaults, it's going to be really hard
+[17:29] for you to move near loop and out loop.
+[17:31] You must understand both the user prompt
+[17:33] you pass in all the time and the system
+[17:35] prompt to change the law for your agent.
+[17:37] And then of course, the tools, the
+[17:38] harness. This is a big one and these all
+[17:40] make up the core four. You must learn
+[17:43] these skills to transition out the loop.
+[17:45] Otherwise, you'll be stuck at the lowest
+[17:46] level because you'll be relying on
+[17:48] whatever the out of the box cloud code,
+[17:50] the out of the box codex, the out of the
+[17:52] box experience of the agent harness, the
+[17:54] out of the box results that everyone
+[17:56] else is now receiving. Again, the
+[17:58] advantage of a single agent in the
+[18:00] default configuration is completely
+[18:02] saturated. It's been that way for a
+[18:04] while now. Everyone's relying on the
+[18:05] models to improve this. That is just one
+[18:08] dimension of four that you, the
+[18:10] engineer, can tap into to multiply your
+[18:13] leverage. Agentic engineering is
+[18:15] understanding these four. Your context,
+[18:17] your tokenomics, your prompt and your
+[18:19] harness engineering. And the big thing
+[18:21] that I think the industry is really
+[18:23] losing their brains over right now and
+[18:24] viewers of this channel understand
+[18:26] deeply is that all this is multiplied by
+[18:28] your software engineering because this
+[18:30] is what you know. These are the
+[18:31] questions you can ask. These are the
+[18:33] architectures you can build. This is the
+[18:35] expertise you have in your domain that
+[18:37] you've been building up year after year.
+[18:39] The value of this cannot be overstated
+[18:41] now because you can now use the rest of
+[18:43] these items. You can now use these new
+[18:45] paradigms to multiply, and I really mean
+[18:47] multiply what you can do. I know it's so
+[18:49] cringey just throwing out phrases like
+[18:51] multiply, exponential, parabolic, but
+[18:54] it's true. It's factually true. And this
+[18:56] is available to you because you can use
+[18:58] these powerful new intelligent tools and
+[19:01] then apply your knowledge in the context
+[19:03] and the tokenomics and the prompt and
+[19:04] the instructions and in your harnesses.
+[19:06] The gap for engineers truly upskilling
+[19:09] their agentic engineering has never been
+[19:11] higher. As I always say, vibe coding is
+[19:13] the floor, agentic engineering is the
+[19:15] ceiling. So, what do I mean by this?
+[19:17] Let's be super concrete. So, you select
+[19:19] a specific model at the right cost
+[19:21] performance speed trade-off. You then
+[19:23] build a custom agent harness using
+[19:25] whatever SDK you want. I recommend Pi.
+[19:27] This enables you to start harness
+[19:28] engineering specific tools to generate
+[19:31] specific results for your product or
+[19:32] application. You then realize that your
+[19:34] agent could start firing off some
+[19:36] negative commands. So, what do you do?
+[19:38] You add a Jeff damage control. Maybe you
+[19:40] get rid of the bash tool entirely
+[19:42] because you realize how dangerous it is,
+[19:44] and you just give your agent the exact
+[19:45] results it wants. This is agentic
+[19:48] engineering. This is a concrete example
+[19:49] of you applying your expertise, your
+[19:51] awareness, your understanding of
+[19:52] security, of your product, right? What
+[19:55] your product needs, your understanding
+[19:56] of model selection, tokenomics, harness
+[19:59] engineering, you passing in the right
+[20:00] prompts to this system. These are skills
+[20:03] that make up agentic engineering. This
+[20:05] is how you move from in to near to out.
+[20:08] You build these systems so well, you
+[20:10] don't have to look at what they're
+[20:11] doing. That's the key. Again, not to
+[20:13] flame or rip on all my vibe coders that
+[20:15] show up, you know, shout out to you
+[20:16] guys, but vibe coding is not knowing
+[20:18] what your system does, and it's not
+[20:20] looking. Agentic engineering is knowing
+[20:22] what your system does so well, you don't
+[20:24] have to look. The The difference is
+[20:26] massive. This is what it looks like. You
+[20:28] are building the application layer. You
+[20:29] are prompting your agent. We want to
+[20:31] move to this new paradigm where you
+[20:32] build a system that then builds the
+[20:34] system on your behalf. That's the
+[20:36] target. This is what it looks like.
+[20:37] Build a system that builds the system.
+[20:39] This is the guiding phrase I used for
+[20:41] tactical agentic coding, the phase two
+[20:43] product I put out a year ago now, which
+[20:45] is still relevant, by the way, but the
+[20:47] third phase is coming, and this single
+[20:50] phrase still holds true. And so, here's
+[20:53] the measure of your success now. You can
+[20:54] use this as a concrete model, a concrete
+[20:56] framework I'm recommending for
+[20:57] engineers. This is something I'm
+[20:58] obsessing over right now. Your measure
+[21:00] of success is how many agents are
+[21:02] working for you right now. Right now. In
+[21:05] this very second.
+[21:07] Now, obviously, I'm not talking about
+[21:09] token maxing. Anyone can spin up a while
+[21:11] loop and have an agent just do random
+[21:13]  I'm talking about useful work that
+[21:15] you need to get done, and this stuff is
+[21:17] happening. Right? I'm talking about
+[21:18] useful work that can multiply your
+[21:19] abilities in ways that you understand,
+[21:21] and ways that you might not have
+[21:22] foreseen yet. I'm talking about products
+[21:24] that you've built with agents inside
+[21:26] running for you without you. I'm talking
+[21:28] about Near Loop and Out Loop. The
+[21:30] advantage is very clear. You can only
+[21:32] focus on so much. You can only split
+[21:34] your attention across so many terminals
+[21:36] before you lose your mind and lose
+[21:38] focus, and now all these three threads
+[21:40] have turned into three threads where you
+[21:42] have no idea what's going on. And you're
+[21:43] just trusting the model more and more.
+[21:45] That is not engineering. Engineering is
+[21:47] building systems that you reliably know
+[21:49] what they'll do to get the results
+[21:51] you're looking for. This is the measure
+[21:53] now. This is the move from low-leverage
+[21:55] agentic engineering to more-leverage
+[21:57] agentic engineering to high-leverage
+[22:00] agentic engineering. You build the
+[22:01] system that is built so well, you step
+[22:03] away because you realize you are the
+[22:07] bottleneck. The next leap is here. If
+[22:08] you've been with the channel week after
+[22:10] week, month after month, you know what's
+[22:11] coming next. Phase three is the
+[22:13] deprecation phase. Augment, automate,
+[22:15] deprecate. This is the three-stage cycle
+[22:17] of every technological revolution. This
+[22:19] is where we employ ZTE zero-touch
+[22:22] engineering. If you've been with the
+[22:23] channel, you know what I'm going to do
+[22:24] next. I'm going to pitch
+[22:26] the next phase three product that I'm
+[22:27] building right now for advanced
+[22:30] engineers using agents every single day.
+[22:32] Link's going to be in the description
+[22:33] for you. In [music] phase three, we
+[22:35] focus purely on Out Loop agentic
+[22:38] engineering. This is the next leap.
+[22:40] [music] The thing to master is going to
+[22:42] be all the fundamentals so that you can
+[22:43] deploy them into these systems that,
+[22:45] again, work for you without you. Link in
+[22:48] the description for that. Pre-sale
+[22:49] starts soon, and throughout pre-sale,
+[22:51] I'm going to be offering a huge discount
+[22:53] on the product. And if you are a phase
+[22:54] two tactical agentic coding member,
+[22:56] you'll also receive a large discount on
+[22:58] the product. I'm so, so excited to share
+[23:00] this with you. It's coming along really,
+[23:02] really well. What is this transition?
+[23:04] Why is it so important? We're moving
+[23:05] from in loop where you prompt to near
+[23:07] loop where you approve to out loop where
+[23:10] you observe. This is the key flow. This
+[23:12] is the progression for agentic engineers
+[23:15] now. So, how do you actually do it? How
+[23:17] do you move out the loop? You master the
+[23:19] core four. You master what makes up the
+[23:21] agent. You use durable agent to solve
+[23:23] real problems. This agent keeps running.
+[23:25] It's looking for triggers. You build
+[23:27] systems that build systems. This is the
+[23:30] key thing that software engineers can do
+[23:32] that no one else can. It's always been
+[23:34] this way. But now it's clearer than ever
+[23:36] because the leverage is higher than
+[23:37] ever. And then, like and subscribe.
+[23:40] >> [laughter]
+[23:40] >> Stay connected to valuable information
+[23:42] to engineers actually doing the thing,
+[23:45] not just covering the news, not just
+[23:46] covering the new model release with the
+[23:48] shock Mr. Beast O face thumbnail.
+[23:51] >> [laughter and gasps]
+[23:51] >> Right? Like this is our bread and butter
+[23:52] on this channel. I've been here 4 years
+[23:55] covering this week after week every
+[23:57] single Monday for years now. And guess
+[23:59] what? I'm going to do it until the end
+[24:01] with you because this is the most
+[24:03] incredible opportunity that has ever
+[24:05] existed for us engineers. Maybe you
+[24:07] missed the internet revolution. Maybe
+[24:08] you missed the mobile revolution. Maybe
+[24:10] you missed social. Maybe you missed
+[24:12] crypto. You and I are here right now in
+[24:14] the age of agents. Let's capitalize on
+[24:17] this. This is what we focus on every
+[24:18] single week here. Again, like and
+[24:20] subscribe. Join the journey. Tell the
+[24:21] algorithm this is signal for you. I've
+[24:23] got three really important links for you
+[24:25] in the description. Pre-sign up for the
+[24:27] phase three product. If you use agents
+[24:29] every single day, if you understand this
+[24:31] advantage, if you're an advanced user of
+[24:33] agents, that's going to be for you. If
+[24:35] you don't fall into that bucket, I'm
+[24:36] sorry, this product is not for you. This
+[24:38] is going to be the most complex course,
+[24:40] the most complex product for engineers I
+[24:41] have ever created and the most valuable.
+[24:43] So, that's linked in the description.
+[24:44] And then I have previous week's video
+[24:45] where we talk about and break down two
+[24:47] real durable agent use cases. You saw us
+[24:49] cover here, the durable news agent and
+[24:51] the on-call agent. Over the next month
+[24:54] leading up to the the
+[24:55] of the phase three product, I'm going to
+[24:57] be sharing content directly from the
+[24:59] phase three products to give you a
+[25:00] teaser of what's coming next to really
+[25:02] paint the picture of what you can do and
+[25:04] what's inside the product so you can
+[25:06] know what you're getting so that you can
+[25:07] hop on the discount. I want [music] to
+[25:09] reward engineers that move fast and
+[25:11] invest in themselves. So again, link in
+[25:14] the description for that. It's going to
+[25:15] be you or your competitors [music] that
+[25:17] make this leap and I want it to be you.
+[25:19] Whenever you sit down in the terminal,
+[25:20] when you put your butt in the seat, I
+[25:22] want you to really stop and [music] ask
+[25:23] yourself, "Is there reason I'm still in
+[25:26] the loop for this work?" And the answer
+[25:28] should truly only be yes if you are
+[25:31] building the system that builds the
+[25:32] [music] system. Comment down below if
+[25:34] this all makes sense to you. Thanks for
+[25:35] watching till the end. I'm going to be
+[25:36] with you here till the end. You know
+[25:38] where to find me every single Monday.
+[25:41] Stay focused and keep building.

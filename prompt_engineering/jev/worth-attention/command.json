@@ -1,0 +1,31 @@
+{
+  "name": "worth-attention",
+  "version": 1,
+  "description": "Is one item worth an agentic engineer's attention today",
+  "model": "~typesafe/jev-latest",
+  "state": {
+    "title": "{{title}}",
+    "source": "{{source}}",
+    "published_at": "{{published_at}}",
+    "excerpt": "{{excerpt}}",
+    "taste_examples": "{{taste_examples}}"
+  },
+  "questions": {
+    "worth": {
+      "type": "noul",
+      "instructions": "Is the item in `title` and `excerpt` worth the attention of an engineer who builds with AI agents, today? `taste_examples` lists items the reader liked or disliked.",
+      "criteria": {
+        "true": "A new release, finding, technique, change or credible analysis that could change what an agentic engineer builds or knows",
+        "false": "A rehash, listicle, marketing, rumor, minor update, or off topic for agentic engineering"
+      }
+    },
+    "novelty": {
+      "type": "score",
+      "instructions": "How new is the information in `title` and `excerpt`?",
+      "criteria": ["Old or rehashed", "Incremental", "Notable", "Major and new"]
+    }
+  },
+  "policy": {
+    "worth_min": 0.35
+  }
+}

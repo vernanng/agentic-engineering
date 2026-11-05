@@ -1,0 +1,24 @@
+{
+  "name": "claim-support",
+  "version": 1,
+  "description": "One yes or no per claim: does the evidence support it",
+  "model": "~typesafe/jev-latest",
+  "each": { "over": "claims", "as": "claim" },
+  "state": {
+    "evidence": "{{evidence}}"
+  },
+  "questions": {
+    "supported": {
+      "type": "noul",
+      "instructions": "Does the text in `evidence` support this claim: \"{{claim}}\"?",
+      "criteria": {
+        "true": "The evidence states or directly demonstrates the claim",
+        "false": "The evidence contradicts the claim, or does not mention it"
+      }
+    }
+  },
+  "policy": {
+    "supported_min": 0.7,
+    "review_band": [0.4, 0.7]
+  }
+}

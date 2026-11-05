@@ -1,0 +1,34 @@
+{
+  "name": "relevance",
+  "version": 1,
+  "description": "How relevant one item is to the reader's topic keywords, and which topic matched",
+  "model": "~typesafe/jev-latest",
+  "state": {
+    "title": "{{title}}",
+    "source": "{{source}}",
+    "excerpt": "{{excerpt}}",
+    "topic_keywords": "{{topic_keywords}}",
+    "taste_examples": "{{taste_examples}}"
+  },
+  "questions": {
+    "relevance": {
+      "type": "score",
+      "instructions": "How relevant is the item in `title` and `excerpt` to the topics in `topic_keywords`? Topics with a higher `weight` matter more to the reader. `taste_examples` lists items the reader liked or disliked.",
+      "criteria": [
+        "Unrelated to every topic",
+        "Loosely related to a topic",
+        "Related to a topic",
+        "Directly about a topic",
+        "Core news for a heavily weighted topic"
+      ]
+    },
+    "matched_topic": {
+      "type": "choice",
+      "instructions": "Which topic in `topic_keywords` is the item in `title` and `excerpt` most about?",
+      "criteria": "{{topic_choices}}"
+    }
+  },
+  "policy": {
+    "relevance_min": 0.45
+  }
+}

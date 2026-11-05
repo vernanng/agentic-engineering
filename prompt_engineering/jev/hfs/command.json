@@ -1,0 +1,46 @@
+{
+  "name": "hfs",
+  "version": 2,
+  "description": "Rank one item across Hype, Facts and Signal",
+  "model": "~typesafe/jev-latest",
+  "state": {
+    "title": "{{title}}",
+    "source": "{{source}}",
+    "excerpt": "{{excerpt}}",
+    "findings": "{{findings}}",
+    "section_keywords": "{{section_keywords}}",
+    "taste_examples": "{{taste_examples}}"
+  },
+  "questions": {
+    "hype": {
+      "type": "score",
+      "instructions": "How much of the item in `title` and `excerpt` (the page text) is hype: largely baseless, overhyped, overrated, not driven by true value, exaggerated, heavy opinion or investment bias, or far more popular than its substance? Use `section_keywords.hype` and the reader's `taste_examples` as hints.",
+      "criteria": ["No hype", "Some promotional tone", "Mostly hype", "Pure hype"]
+    },
+    "facts": {
+      "type": "score",
+      "instructions": "How checkable are the claims in `excerpt` and `findings`, judged from what the text itself shows? A primary source (the maker's own announcement, release notes, a changelog, documentation, code, a paper) or specific, checkable details (versions, numbers, dates, named sources) score high. Claims with no source score low. Score the evidence the text shows, not whether you checked it yourself. Use `section_keywords.facts` as hints.",
+      "criteria": [
+        "No source for its claims",
+        "Reported secondhand",
+        "Primary source or specific, checkable details",
+        "Primary source with code, numbers or a release"
+      ]
+    },
+    "signal": {
+      "type": "score",
+      "instructions": "How useful, valuable and specifically actionable is the item in `title` and `excerpt` for an engineer who builds with AI agents, right now? Use `section_keywords.signal` as hints.",
+      "criteria": ["Not actionable", "Background only", "Useful soon", "Act on it now"]
+    }
+  },
+  "policy": {
+    "label_threshold": 50,
+    "tie_order": ["signal", "facts", "hype"],
+    "attention": {
+      "signal": 0.5,
+      "facts": 0.35,
+      "hype": -0.25,
+      "relevance": 0.4
+    }
+  }
+}

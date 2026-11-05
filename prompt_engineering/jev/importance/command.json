@@ -1,0 +1,25 @@
+{
+  "name": "importance",
+  "version": 1,
+  "description": "How important one gated item is to this reader right now, to pick the few a sweep presents",
+  "model": "~typesafe/jev-latest",
+  "state": {
+    "title": "{{title}}",
+    "source": "{{source}}",
+    "source_weight": "{{source_weight}}",
+    "published_at": "{{published_at}}",
+    "excerpt": "{{excerpt}}",
+    "topic": "{{topic}}",
+    "topic_weight": "{{topic_weight}}",
+    "topic_keywords": "{{topic_keywords}}",
+    "taste_examples": "{{taste_examples}}"
+  },
+  "questions": {
+    "importance": {
+      "type": "score",
+      "instructions": "How important is the item in `title` and `excerpt` for this reader right now? Weights run from 0.1 to 2 with 1 as neutral: a higher `topic_weight` (the weight of `topic` among `topic_keywords`) and a higher `source_weight` mean the reader cares more. Newer `published_at` beats older. `taste_examples` lists items the reader liked or disliked.",
+      "criteria": ["Skip it", "Nice to know", "Worth reading today", "Read it now"]
+    }
+  },
+  "policy": {}
+}
