@@ -259,6 +259,23 @@ class H(BaseHTTPRequestHandler):
             return self.send_json(200, q("SELECT * FROM audit ORDER BY id DESC LIMIT 100"))
         return self.send_json(404, {"error": "not found"})
 
+    def do_DELETE(self):
+        parts = [p for p in self.path.split("?")[0].split("/") if p]
+        if parts[:1] == ["api"] and not self.authorized():
+            return self.send_json(401, {"error": "unauthorized"})
+        if len(parts) == 3 and parts[:2] == ["api", "runs"]:
+            run = q("SELECT * FROM runs WHERE id=?", (parts[2],), one=True)
+            if not run: return self.send_json(404, {"error": "run not found"})
+            if run["status"] not in ("completed", "killed", "failed"):
+                return self.send_json(400, {"error": "only finished runs can be deleted"})
+            for table in ("steps", "decisions", "audit"):
+                x(f"DELETE FROM {table} WHERE run_id=?", (run["id"],))
+            x("DELETE FROM runs WHERE id=?", (run["id"],))
+            CTRL.pop(run["id"], None)
+            audit(None, "run_deleted", f"run {run['id']} task_type={run['task_type_id']} status={run['status']}")
+            return self.send_json(200, {"ok": True, "deleted": run["id"]})
+        return self.send_json(404, {"error": "not found"})
+
     def do_POST(self):
         parts = [p for p in self.path.split("/") if p]
         if parts[:1] == ["api"] and not self.authorized():

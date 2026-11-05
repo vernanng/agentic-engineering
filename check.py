@@ -119,6 +119,23 @@ def main():
     promoted = call("POST", f"/api/task-types/{tt5['id']}/promote", {}, 200)
     assert promoted["mode"] == "near", promoted
     print("promotion ok")
+
+    # 5. delete: finished runs only; deleted run is gone
+    tt6 = call("POST", "/api/task-types", {"name": "check-del", "template": "summarize", "mode": "in"}, 201)
+    done = call("POST", "/api/runs", {"task_type_id": tt6["id"], "input": "ok"}, 201)
+    for _ in range(2):
+        wait_run(done["id"], "awaiting_decision")
+        call("POST", f"/api/runs/{done['id']}/decide", {"action": "approve"}, 200)
+    wait_run(done["id"], "completed")
+    live = call("POST", "/api/runs", {"task_type_id": tt6["id"], "input": "ok"}, 201)
+    wait_run(live["id"], "awaiting_decision")
+    call("DELETE", f"/api/runs/{live['id']}", None, 400)
+    call("POST", f"/api/runs/{live['id']}/decide", {"action": "reject"}, 200)
+    wait_run(live["id"], "killed")
+    call("DELETE", f"/api/runs/{done['id']}", None, 200)
+    call("GET", f"/api/runs/{done['id']}", None, 404)
+    call("DELETE", f"/api/runs/{done['id']}", None, 404)
+    print("delete ok")
     print("ALL CHECKS PASSED")
 
 if __name__ == "__main__":

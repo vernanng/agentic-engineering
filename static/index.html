@@ -107,6 +107,14 @@
     <button class="errfilled" onclick="confirmKill()">Kill run</button>
   </div>
 </dialog>
+<dialog id="deldlg">
+  <h3>Delete this run?</h3>
+  <p>The run, its steps, and its audit trail are permanently removed. This cannot be undone.</p>
+  <div class="row">
+    <button class="textbtn" onclick="$('deldlg').close()">Cancel</button>
+    <button class="errfilled" onclick="confirmDelete()">Delete run</button>
+  </div>
+</dialog>
 <div id="snack" role="status" aria-live="polite"></div>
 
 <script>
@@ -137,7 +145,7 @@ async function refresh() {
   $("loadbar").style.display = "none";
   $("runs").innerHTML = runs.map(r => `<div>#${r.id} task=${r.task_type_id} mode=${esc(r.mode)} <span class="badge status">${esc(r.status)}</span> input=${esc(JSON.stringify(r.input))}
     <button class="textbtn" onclick="selectRun(${r.id})">view</button>
-    <button class="textbtn" onclick="control(${r.id},'pause')">pause</button><button class="textbtn" onclick="control(${r.id},'resume')">resume</button><button class="danger" onclick="askKill(${r.id})">kill</button></div>`).join("") || "no runs yet";
+    <button class="textbtn" onclick="control(${r.id},'pause')">pause</button><button class="textbtn" onclick="control(${r.id},'resume')">resume</button><button class="danger" onclick="askKill(${r.id})">kill</button><button class="danger" onclick="askDelete(${r.id})">delete</button></div>`).join("") || "no runs yet";
   if (selected) await selectRun(selected, true);
 }
 let snackTimer = null;
@@ -151,6 +159,15 @@ function snack(text) {
 let killId = null;
 function askKill(id) { killId = id; $("killdlg").showModal(); }
 async function confirmKill() { $("killdlg").close(); if (killId !== null) await control(killId, "kill"); killId = null; }
+let delId = null;
+function askDelete(id) { delId = id; $("deldlg").showModal(); }
+async function confirmDelete() {
+  $("deldlg").close();
+  if (delId === null) return;
+  const id = delId; delId = null;
+  if (selected === id) { selected = null; $("detail").innerHTML = "Click a run."; }
+  await act(() => api(`/api/runs/${id}`, {method: "DELETE"}), "Run #" + id + " deleted");
+}
 async function submitRun() {
   try { const r = await post("/api/runs", {task_type_id: +$("tt").value, input: $("input").value}); selected = r.id; snack("Run #" + r.id + " started"); refresh(); }
   catch (e) { snack(e.message); }
