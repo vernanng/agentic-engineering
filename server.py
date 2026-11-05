@@ -43,6 +43,7 @@ SLICES = {
 }
 THINKING_LEVELS = ["low", "medium", "high", "max"]
 
+DEEPSEEK_FLASH_MODEL = os.environ.get("DEEPSEEK_FLASH_MODEL", "")  # cheap tier when set
 JEV_MODEL = os.environ.get("JEV_MODEL", "~typesafe/jev-latest")
 JEV_MOCK = os.environ.get("JEV_MOCK", "") == "1"  # explicit dev mock, always labelled mock
 JEV_PRICE_PER_M = 0.042  # OpenRouter catalog price for jev input tokens, output free
@@ -52,7 +53,8 @@ def default_config():
             "max_tokens": OPENROUTER_MAX_TOKENS, "conf_threshold": CONF_THRESHOLD,
             "system_prompt": "", "thinking_level": "medium",
             "enabled_slices": list(SLICES), "context_limit": 4000,
-            "jev_model": JEV_MODEL, "news_sources": []}
+            "jev_model": JEV_MODEL, "news_sources": [],
+            "cheap_model": DEEPSEEK_FLASH_MODEL or OPENROUTER_MODEL}
 
 def validate_config_patch(patch):
     """Return a cleaned partial config, or raise ValueError."""
@@ -75,6 +77,8 @@ def validate_config_patch(patch):
             if not isinstance(v, int) or isinstance(v, bool) or not 100 <= v <= 100000: raise ValueError("context_limit must be 100..100000")
         elif k == "jev_model":
             if not isinstance(v, str) or not v: raise ValueError("jev_model must be a non-empty string")
+        elif k == "cheap_model":
+            if not isinstance(v, str) or not v: raise ValueError("cheap_model must be a non-empty string")
         elif k == "news_sources":
             if not isinstance(v, list) or not all(isinstance(u, str) for u in v): raise ValueError("news_sources must be a list of URL strings")
         else:
@@ -506,7 +510,9 @@ def run_step(step_name, text, confidence):
         raise RuntimeError("coding slice disabled (self-modification in effect)")
     if not OPENROUTER_API_KEY:
         return f"{step_name}: done for '{text[:40]}'", confidence
-    model = cfg["escalation_model"] if confidence < cfg["conf_threshold"] else cfg["model"]
+    # Tokenomics tiers: cheap (DeepSeek Flash) for routine steps, main mid, escalation low.
+    model = cfg["escalation_model"] if confidence < cfg["conf_threshold"] else \
+        cfg["cheap_model"] if confidence >= 0.9 else cfg["model"]
     prompt = (
         (cfg["system_prompt"] + "\n" if cfg["system_prompt"] else "")
         + f"Do this step: {step_name}\nInput:\n{text[:cfg['context_limit']]}\n\n"

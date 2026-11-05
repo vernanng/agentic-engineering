@@ -101,6 +101,23 @@ def test_jev_wire_and_resume():
         pass
     finally:
         server.OPENROUTER_API_KEY = saved
+    # tokenomics tiers: cheap_model (DeepSeek Flash) takes routine steps
+    server.save_config({"cheap_model": "flash-test"})
+    seen_model = {}
+    class _ChatResp:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def read(self): return json.dumps({"choices": [{"message": {"content": json.dumps({"output": "ok", "confidence": 0.9})}}]}).encode()
+    def fake_chat(req, timeout=None):
+        seen_model["m"] = json.loads(req.data)["model"]
+        return _ChatResp()
+    with mock.patch.object(server.urllib.request, "urlopen", fake_chat):
+        server.run_step("draft summary", "hello", 0.95)
+        assert seen_model["m"] == "flash-test", seen_model  # routine step on the cheap tier
+        server.run_step("triage ticket", "hello", 0.55)
+        assert seen_model["m"] == server.OPENROUTER_ESCALATION_MODEL, seen_model
+    server.save_config({"cheap_model": server.OPENROUTER_MODEL})
+    print("model tiers ok")
     # resume: a queued run starts on boot; done steps are checkpoints (none here)
     server.init_db()
     tt = server.q("SELECT * FROM task_types WHERE name='summarize'", one=True)
