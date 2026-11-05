@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Loop App — in &gt;&gt; near &gt;&gt; out</title>
+<style>
+  body{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem}
+  .card{border:1px solid #ccc;border-radius:8px;padding:1rem;margin:.7rem 0}
+  .badge{font-weight:700;padding:.1rem .4rem;border-radius:4px;background:#eee}
+  .in{background:#ffe08a}.near{background:#a8d8ff}.out{background:#a8ffb0}
+  button{margin:.2rem;cursor:pointer}
+  pre{background:#f6f6f6;padding:.5rem;overflow:auto;max-height:240px}
+  input,select{padding:.35rem}
+</style>
+<h1>Loop App</h1>
+<p><b>in-the-loop</b>: approve every step &nbsp; <b>near-the-loop</b>: auto, pauses on low-confidence / risky / failure &nbsp; <b>out-of-the-loop</b>: fully automatic, alerts on failure. Add <code>FAIL</code> to input to simulate a failure.</p>
+
+<div class="card">
+  <h2>New run</h2>
+  <select id="tt"></select>
+  <input id="input" placeholder="task input, e.g. quarterly numbers" size="32">
+  <button onclick="submitRun()">Run</button>
+  <span id="msg"></span>
+</div>
+
+<div id="types"></div>
+<div class="card"><h2>Runs</h2><div id="runs">loading…</div></div>
+<div class="card"><h2>Selected run</h2><div id="detail">Click a run.</div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let selected = null;
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || r.status);
+  return d;
+}
+const post = (path, obj) => api(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(obj || {})});
+
+async function refresh() {
+  const types = await api("/api/task-types");
+  $("tt").innerHTML = types.map(t => `<option value="${t.id}">${t.name} (${t.template}, ${t.mode})</option>`).join("");
+  $("types").innerHTML = types.map(t => `<div class="card">
+    <b>${t.name}</b> <span class="badge ${t.mode}">${t.mode}-the-loop</span>
+    template=${t.template} · consecutive successes=${t.consecutive_success} · failures=${t.failures}
+    ${t.promotion_eligible ? `<button onclick="promote(${t.id})">Promote to ${t.next_mode} &gt;&gt;</button>` : ""}
+    <button onclick="setMode(${t.id},'in')">in</button><button onclick="setMode(${t.id},'near')">near</button><button onclick="setMode(${t.id},'out')">out</button>
+  </div>`).join("");
+  const runs = await api("/api/runs");
+  $("runs").innerHTML = runs.map(r => `<div>#${r.id} task=${r.task_type_id} mode=${r.mode} <b>${r.status}</b> input=${JSON.stringify(r.input)}
+    <button onclick="selectRun(${r.id})">view</button>
+    <button onclick="control(${r.id},'pause')">pause</button><button onclick="control(${r.id},'resume')">resume</button><button onclick="control(${r.id},'kill')">kill</button></div>`).join("") || "no runs yet";
+  if (selected) await selectRun(selected, true);
+}
+async function submitRun() {
+  try { const r = await post("/api/runs", {task_type_id: +$("tt").value, input: $("input").value}); selected = r.id; $("msg").textContent = "run #" + r.id; refresh(); }
+  catch (e) { $("msg").textContent = e.message; }
+}
+async function selectRun(id, keep) {
+  selected = id;
+  const r = await api("/api/runs/" + id);
+  const waiting = r.steps.find(s => s.status === "awaiting_decision");
+  $("detail").innerHTML = `<b>Run #${r.id}</b> mode=${r.mode} status=<b>${r.status}</b>
+    ${waiting ? `<div>⏸ ${waiting.name}: ${waiting.pause_reason || ""}
+      <input id="edit" placeholder="optional edited output" size="28">
+      <button onclick="decide(${r.id},'approve')">Approve</button>
+      <button onclick="decideEdit(${r.id})">Approve with edit</button>
+      <button onclick="decide(${r.id},'reject')">Reject / kill</button></div>` : ""}
+    <pre>${r.steps.map(s => `${s.idx}. ${s.name} [${s.status}] conf=${s.confidence} risky=${s.risky} ${s.output || ""}`).join("\n") || "no steps yet"}</pre>
+    <h3>Audit</h3><pre>${r.audit.map(a => `${a.event} ${a.detail}`).join("\n")}</pre>`;
+}
+async function decide(id, action) { await post(`/api/runs/${id}/decide`, {action}); refresh(); }
+async function decideEdit(id) { await post(`/api/runs/${id}/decide`, {action: "approve", edited_output: $("edit").value}); refresh(); }
+async function control(id, action) { await post(`/api/runs/${id}/control`, {action}); refresh(); }
+async function setMode(id, mode) { await post(`/api/task-types/${id}/mode`, {mode}); refresh(); }
+async function promote(id) { await post(`/api/task-types/${id}/promote`, {}); refresh(); }
+refresh();
+setInterval(refresh, 1500);
+</script>
