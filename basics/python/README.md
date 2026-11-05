@@ -56,3 +56,9 @@ pip freeze > requirements.txt   # pin deps; reinstall: pip install -r requiremen
 ```
 
 See [hello.py](hello.py) and run it.
+
+> **From the official docs:** The Python Tutorial describes Python as “easy to learn, powerful” with “high-level data structures” and “simple but effective” OOP, extensible in C/C++ — this guide’s dynamic-typing and data-structure coverage follows that framing, with control-flow and classes covered in Tutorial §§3–9.
+
+## Sources
+
+- [The Python Tutorial](https://docs.python.org/3/tutorial/) — §§1–4 (introduction, interpreter, data structures), §§6–9 (modules, I/O, errors, classes).

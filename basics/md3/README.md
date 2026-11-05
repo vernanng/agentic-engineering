@@ -68,3 +68,10 @@ Design for width classes, not devices: **compact** (<600dp, phone), **medium** (
 Short, purposeful transitions: standard easing, roughly 100–300ms for most component transitions, shared-element/container transforms for moving between screens. Nothing bounces forever; respect reduced-motion settings.
 
 See [demo.html](demo.html): one self-contained page showing colour roles (with a light/dark toggle), the type scale, shape scale, and the main components in plain CSS variables — open it in a browser, no build step.
+
+> **From the official docs:** Material 3 organises design into five subsystems — **Color, Typography, Shape, Layout, and Components** (with Motion spanning them). A theme is explicitly the application of these subsystems to a product: one colour scheme (key colours → tonal palettes → roles), one type scale, and one shape scale together define the theme, and components consume roles/tokens, never raw values. Colour, type, and shape in §§1–3 above map directly onto the Color/Typography/Shape subsystems.
+
+## Sources
+
+- [Material Design 3](https://m3.material.io/) — Color, Typography, Shape, Layout, and Components subsystems; dynamic colour and theming.
+- [Material 3 in Compose — Android Developers](https://developer.android.com/develop/ui/compose/designsystems/material3) — `MaterialTheme` colour/typography/shape wiring used on Android.

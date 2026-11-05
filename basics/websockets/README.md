@@ -34,3 +34,10 @@ python3 client.py   # terminal 2: sends "hello", gets "echo: hello"
 ```
 
 See [server.py](server.py) and [client.py](client.py). In a browser, the client side is built in: `new WebSocket("ws://localhost:8765")`.
+
+> **From the official docs:** RFC 6455 defines WebSocket to “enable two-way communication between a client running untrusted code in a controlled environment to a remote host that has opted-in” — it starts with an HTTP Upgrade handshake, then frames exchange in either direction over the single TCP connection, enabling low-overhead server push. That handshake + framed-message model is what the echo demo implements.
+
+## Sources
+
+- [RFC 6455 — The WebSocket Protocol](https://www.rfc-editor.org/rfc/rfc6455.html) — §1 (two-way communication model), §4 (opening handshake), §5 (framing).
+- [WebSocket API — MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) — browser client (`wss://` recommended).
