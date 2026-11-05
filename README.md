@@ -46,6 +46,10 @@ Optional auto-deploy on every commit (not installed by default): `printf '#!/bin
 
 Exercise the loop: submit a `summarize` run (in-the-loop, approve each step), switch `classify` to near and watch it pause on low confidence and the risky step, then put any task in out and add `FAIL` to the input to see the alert and demotion.
 
+## Tiny Software Factory
+
+The UI is a tiny software factory (see [docs/tsf-clone.md](docs/tsf-clone.md), with the source transcript): lists on the left (task types, crons, pages), focus in the center (selected run or page), the durable agent on the right (tools, core-four config, proposals). Close the browser and cron prompts keep creating runs; reopen it and the work is waiting for review. Deliberately DONE WRONG, like the lesson: one agent, cron in the server, one JSON config, SQLite on one box — each limit is marked `shortcut:` in [server.py](server.py).
+
 ## Build a real task
 
 Edit `TEMPLATES` in [server.py](server.py) (steps are `name, confidence, risky`). `run_step()` — signature `(step_name, text, confidence) -> (output, confidence)`, raising `RuntimeError` on failure — calls OpenRouter when configured, else a local stub with no spend. Setup: `cp .env.example .env`, set `OPENROUTER_API_KEY=sk-or-...` (from your OpenRouter balance), then `./deploy.sh`. Never commit `.env`.
@@ -80,6 +84,12 @@ All endpoints are JSON under `/api`. When `LOOP_TOKEN` is set, send `X-Loop-Toke
 | `POST /api/runs/:id/decide` | `{action: approve\|reject, edited_output?}` for the step awaiting decision. |
 | `POST /api/runs/:id/control` | `{action: pause\|resume\|kill}`. |
 | `GET /api/audit` | Latest 100 audit entries. |
+| `GET /api/tools` | Agent access parity manifest: every UI control as an agent tool, plus harness slices. |
+| `GET /api/config` · `PUT /api/config` | Core four (context, model, prompt, tools) as one JSON config; `PUT` is human-direct. |
+| `GET/POST /api/crons`, `DELETE /api/crons/:id` | Cron prompts: `{name, schedule_s, prompt, task_type_id}` — the agent works while you're away. |
+| `GET/POST /api/pages`, `POST/DELETE /api/pages/:id` | Agent-written pages, shown sandboxed in the center (Focus) pane. |
+| `GET/POST /api/proposals`, `POST /api/proposals/:id/decide` | Self-modification proposals; nothing applies until a human approves. Never from `out`. |
+| `POST /api/factories` | Initialize + configure + specialize in one call (same code as `python3 server.py --init-factory factory.json`). Starts in `in`. |
 
 ## Data
 

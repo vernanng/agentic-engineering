@@ -151,6 +151,76 @@ def main():
         call("POST", f"/api/runs/{run['id']}/decide?x=1", {"action": "approve"}, 200)
     wait_run(run["id"], "completed")
     print("validation ok")
+
+    # 7. Tiny Software Factory clone (docs/tsf-clone.md)
+    manifest = call("GET", "/api/tools")
+    names = {t["name"] for t in manifest["tools"]}
+    assert {"start_run", "decide", "create_cron", "create_page", "propose_config", "create_factory"} <= names, names
+    assert set(manifest["slices"]) == {"factory", "coding", "pages", "factory-controls"}
+    cfg = call("GET", "/api/config")
+    assert cfg["thinking_level"] in ("low", "medium", "high", "max") and cfg["enabled_slices"]
+    call("PUT", "/api/config", {"bogus_key": 1}, 400)
+    call("PUT", "/api/config", {"thinking_level": "high"}, 200)
+    assert call("GET", "/api/config")["thinking_level"] == "high"
+    print("tools+config ok")
+
+    page = call("POST", "/api/pages", {"title": "Check Page", "body": "<b>hi</b>", "created_by": "agent"}, 201)
+    assert any(p["id"] == page["id"] for p in call("GET", "/api/pages"))
+    edited = call("POST", f"/api/pages/{page['id']}", {"body": "<i>edited</i>"}, 200)
+    assert edited["body"] == "<i>edited</i>"
+    call("DELETE", f"/api/pages/{page['id']}", None, 200)
+    call("GET", f"/api/pages/{page['id']}", None, 404)
+    print("pages ok")
+
+    # self-modification: nothing applies until a human approves; out cannot propose
+    prop = call("POST", "/api/proposals", {"task_type_id": tt["id"], "config": {"thinking_level": "max"}}, 201)
+    assert call("GET", "/api/config")["thinking_level"] == "high", "proposal must not self-apply"
+    call("POST", f"/api/proposals/{prop['id']}/decide", {"action": "approve"}, 200)
+    assert call("GET", "/api/config")["thinking_level"] == "max"
+    call("POST", f"/api/proposals/{prop['id']}/decide", {"action": "approve"}, 400)
+    tt_out = call("POST", "/api/task-types", {"name": "check-out2", "template": "summarize", "mode": "out"}, 201)
+    call("POST", "/api/proposals", {"task_type_id": tt_out["id"], "config": {"thinking_level": "low"}}, 400)
+    print("proposals ok")
+
+    # disabling the coding slice stops execution (pause/alert path, not a crash)
+    call("PUT", "/api/config", {"enabled_slices": ["factory", "pages", "factory-controls"]}, 200)
+    run = call("POST", "/api/runs", {"task_type_id": tt2["id"], "input": "slice check"}, 201)
+    r = wait_run(run["id"], "awaiting_decision")
+    assert "coding slice disabled" in r["steps"][0]["pause_reason"], r["steps"]
+    call("POST", f"/api/runs/{run['id']}/decide", {"action": "reject"}, 200)
+    wait_run(run["id"], "failed")
+    call("PUT", "/api/config", {"enabled_slices": ["factory", "coding", "pages", "factory-controls"]}, 200)
+    print("slices ok")
+
+    # cron prompts: fires with nobody watching, creates a real audited run
+    ttc = call("POST", "/api/task-types", {"name": "check-cron", "template": "summarize", "mode": "near"}, 201)
+    cron = call("POST", "/api/crons", {"name": "check-tick", "schedule_s": 1, "prompt": "cron hello", "task_type_id": ttc["id"]}, 201)
+    end = time.time() + 12
+    fired = None
+    while time.time() < end and fired is None:
+        fired = next((a for a in call("GET", "/api/audit") if a["event"] == "cron_fired" and f"cron {cron['id']}" in (a["detail"] or "")), None)
+        if fired is None: time.sleep(0.3)
+    assert fired is not None, "cron never fired"
+    cron_run = call("GET", f"/api/runs/{fired['run_id']}")
+    assert cron_run["task_type_id"] == ttc["id"] and cron_run["input"] == "cron hello", cron_run
+    wait_run(cron_run["id"], "completed")
+    call("DELETE", f"/api/crons/{cron['id']}", None, 200)
+    print("cron ok")
+
+    # initialize/configure/specialize in one call (API + CLI share create_factory)
+    fac = call("POST", "/api/factories", {"name": "check-factory", "template": "summarize",
+        "crons": [{"name": "f-cron", "schedule_s": 3600, "prompt": "hello"}],
+        "starter_page": {"title": "Start", "body": "<b>hi</b>"}}, 201)
+    assert fac["task_type"]["mode"] == "in" and len(fac["crons"]) == 1 and fac["page"]["title"] == "Start", fac
+    call("DELETE", f"/api/crons/{fac['crons'][0]['id']}", None, 200)
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump({"name": "check-factory-cli", "template": "report"}, f); cli_cfg = f.name
+    out = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.py"),
+                          "--init-factory", cli_cfg],
+                         env={**os.environ, "LOOP_DB": tempfile.NamedTemporaryFile(suffix=".db", delete=False).name},
+                         capture_output=True, text=True, timeout=15)
+    assert out.returncode == 0 and json.loads(out.stdout)["task_type"]["mode"] == "in", out.stderr
+    print("factory init ok")
     print("ALL CHECKS PASSED")
 
 if __name__ == "__main__":

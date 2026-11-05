@@ -75,6 +75,13 @@
   dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
   @media (prefers-reduced-motion: reduce){ .progress span{animation:none;width:100%} .switch::after,#snack{transition:none} }
   @media (max-width:600px){ input,select{width:100%;margin:.3rem 0} .seg{margin-left:0} }
+  /* Tiny Software Factory: lists left, focus center, agent right. */
+  body{max-width:1440px}
+  .factory{display:grid;grid-template-columns:300px 1fr 320px;gap:16px;align-items:start}
+  .factory main{min-width:0}
+  iframe.pageview{width:100%;min-height:260px;border:1px solid var(--outline);border-radius:12px;background:#fff}
+  textarea{font:inherit;color:var(--on-surface);background:var(--surface-variant);border:0;border-radius:8px;padding:8px 12px;margin:.2rem;width:100%}
+  @media (max-width:1000px){ .factory{grid-template-columns:1fr} }
 </style>
 <script>
   // Set theme before first paint: saved choice wins, else system preference.
@@ -88,16 +95,44 @@
 </header>
 <p><b>in-the-loop</b>: approve every step &nbsp; <b>near-the-loop</b>: auto, pauses on low-confidence / risky / failure &nbsp; <b>out-of-the-loop</b>: fully automatic, alerts on failure. Add <code>FAIL</code> to input to simulate a failure.</p>
 
+<div class="factory">
+<aside>
+  <div id="types"></div>
+  <div class="card"><h2>Crons</h2><div id="crons">loading…</div>
+    <h3>New cron prompt</h3>
+    <label class="field">Name <input id="cron-name" size="14"></label>
+    <label class="field">Every (s) <input id="cron-s" type="number" value="3600" min="1" max="86400" size="6"></label>
+    <label class="field">Prompt <input id="cron-prompt" size="18" placeholder="uses selected Task"></label>
+    <button class="filled" onclick="createCron()">Add cron</button>
+  </div>
+  <div class="card"><h2>Pages</h2><div id="pages">loading…</div></div>
+</aside>
+<main>
 <div class="card">
   <h2>New run</h2>
   <label class="field">Task <select id="tt"></select></label>
   <label class="field">Input <input id="input" placeholder="task input, e.g. quarterly numbers" size="32"></label>
   <button class="filled" onclick="submitRun()">Run</button>
 </div>
-
-<div id="types"></div>
 <div class="card"><h2>Runs</h2><div class="progress" id="loadbar"><span></span></div><div id="runs">loading…</div></div>
-<div class="card"><h2>Selected run</h2><div id="detail">Click a run.</div></div>
+<div class="card"><h2>Focus</h2><div id="detail">Click a run or a page.</div></div>
+</main>
+<aside>
+  <div class="card"><h2>Agent</h2>
+    <p class="muted">Durable agent, always on. Everything here has a matching tool in <code>/api/tools</code> — and the agent only changes config through a proposal you approve.</p>
+    <h3>Core four</h3><div id="cfg">loading…</div>
+    <label class="field">Thinking <select id="thinking"><option>low</option><option>medium</option><option>high</option><option>max</option></select></label>
+    <button onclick="saveConfig()">Save thinking level</button>
+    <h3>Proposals</h3><div id="proposals">none</div>
+    <h3>Tools</h3><div id="tools">loading…</div>
+  </div>
+  <div class="card"><h2>New page</h2>
+    <label class="field">Title <input id="page-title" size="18"></label>
+    <textarea id="page-body" rows="5" placeholder="page HTML/markdown — the agent can edit this too"></textarea>
+    <button class="filled" onclick="createPage()">Create page</button>
+  </div>
+</aside>
+</div>
 
 <dialog id="killdlg">
   <h3>Kill this run?</h3>
@@ -149,6 +184,17 @@ async function refresh() {
     <button class="textbtn" onclick="selectRun(${r.id})">view</button>
     <button class="textbtn" onclick="control(${r.id},'pause')">pause</button><button class="textbtn" onclick="control(${r.id},'resume')">resume</button><button class="danger" onclick="askKill(${r.id})">kill</button><button class="danger" onclick="askDelete(${r.id})">delete</button></div>`).join("") || "no runs yet";
   if (selected && document.activeElement?.id !== "edit") await selectRun(selected, true);
+  const crons = await api("/api/crons");
+  $("crons").innerHTML = crons.map(c => `<div>#${c.id} ${esc(c.name)} every ${c.schedule_s}s task=${c.task_type_id} <button class="danger" onclick="deleteCron(${c.id})">delete</button><br><small>${esc(c.prompt)}</small></div>`).join("") || "no crons yet";
+  const pages = await api("/api/pages");
+  $("pages").innerHTML = pages.map(p => `<div>${esc(p.title)} <small>by ${esc(p.created_by || "human")}</small> <button class="textbtn" onclick="selectPage(${p.id})">open</button><button class="danger" onclick="deletePage(${p.id})">delete</button></div>`).join("") || "no pages yet";
+  const cfg = await api("/api/config");
+  $("cfg").innerHTML = `<small>context ≤ ${cfg.context_limit} chars · model ${esc(cfg.model)} → ${esc(cfg.escalation_model)} under ${cfg.conf_threshold} · slices: ${esc(cfg.enabled_slices.join(", "))}</small>`;
+  if (document.activeElement?.id !== "thinking") $("thinking").value = cfg.thinking_level;
+  const props = await api("/api/proposals");
+  $("proposals").innerHTML = props.map(p => `<div>#${p.id} [${esc(p.status)}] <code>${esc(p.config)}</code>${p.status === "pending" ? ` <button class="filled" onclick="decideProposal(${p.id},'approve')">Approve</button><button class="danger" onclick="decideProposal(${p.id},'reject')">Reject</button>` : ""}</div>`).join("") || "none";
+  const manifest = await api("/api/tools");
+  $("tools").innerHTML = `<small>${manifest.tools.map(t => esc(t.name)).join(" · ")}</small>`;
 }
 let snackTimer = null;
 function snack(text) {
@@ -199,6 +245,18 @@ async function decideEdit(id) { await act(() => post(`/api/runs/${id}/decide`, {
 async function control(id, action) { await act(() => post(`/api/runs/${id}/control`, {action}), "Run #" + id + ": " + action); }
 async function setMode(id, mode) { await act(() => post(`/api/task-types/${id}/mode`, {mode}), "Mode set to " + mode + "-the-loop"); }
 async function promote(id) { await act(() => post(`/api/task-types/${id}/promote`, {}), "Promoted"); }
+async function createCron() { await act(() => post("/api/crons", {name: $("cron-name").value, schedule_s: +$("cron-s").value, prompt: $("cron-prompt").value, task_type_id: +$("tt").value}), "Cron added"); }
+async function deleteCron(id) { await act(() => api(`/api/crons/${id}`, {method: "DELETE"}), "Cron deleted"); }
+async function createPage() { await act(() => post("/api/pages", {title: $("page-title").value, body: $("page-body").value}), "Page created"); }
+async function deletePage(id) { await act(() => api(`/api/pages/${id}`, {method: "DELETE"}), "Page deleted"); }
+async function selectPage(id) {
+  selected = null;
+  const p = await api("/api/pages/" + id);
+  $("detail").innerHTML = `<b>${esc(p.title)}</b> <small>by ${esc(p.created_by || "human")}</small><iframe class="pageview" sandbox id="pageview"></iframe>`;
+  $("pageview").srcdoc = p.body || "";  // sandboxed: agent-written pages cannot script the app
+}
+async function saveConfig() { await act(() => api("/api/config", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({thinking_level: $("thinking").value})}), "Config saved"); }
+async function decideProposal(id, action) { await act(() => post(`/api/proposals/${id}/decide`, {action}), "Proposal " + action); }
 $("theme").checked = document.documentElement.dataset.theme === "dark";
 $("theme").addEventListener("change", e => {
   document.documentElement.dataset.theme = e.target.checked ? "dark" : "light";

@@ -1,0 +1,499 @@
+[00:00] Welcome to Tiny Software Factories
+[00:02] lesson one. Tiny Software Factories is a
+[00:04] crash course mini-series where we build
+[00:07] small useful software factories that
+[00:10] work for you around the clock so you can
+[00:12] move from being stuck in the loop to
+[00:14] being near the loop. In each lesson,
+[00:16] you'll see an empty factory and a
+[00:18] running factory. This lets you
+[00:20] understand the capabilities first and
+[00:22] then you can apply them to a real
+[00:24] problem. In lesson one, you'll dive into
+[00:27] the world of Tiny Software Factories and
+[00:29] learn agentic engineering done wrong.
+[00:32] Now, I know it's a little weird. Why
+[00:34] would you want to learn agentic
+[00:35] engineering incorrectly? Let me explain.
+[00:38] Tiny Software Factories is a crash
+[00:40] course on incrementally scaling your
+[00:42] agentic engineering to the closest
+[00:45] [music] useful threshold. In TSF, you're
+[00:47] going to learn many dark patterns of
+[00:50] agentic engineering that will not scale.
+[00:53] In exchange, you'll move fast, break
+[00:55] things, fix them, and ship. But, these
+[00:58] are anti-patterns. So, I want to make
+[00:59] this super clear. Tiny Software
+[01:01] Factories is a highly compressed lossy
+[01:04] version of the infinite agentic
+[01:06] engineering core lesson set. Here, we
+[01:08] focus on near-loop agentic engineering.
+[01:11] [music] IA3 focuses on the much
+[01:13] higher-leverage but more challenging
+[01:15] out-loop agentic engineering where we
+[01:17] build fully autonomous systems that
+[01:19] operate for you without you. What you'll
+[01:21] see here is not recommended as long-term
+[01:24] solutions. These anti-patterns are meant
+[01:26] to move you from zero to value at the
+[01:28] cost of basically everything except
+[01:31] getting the job done. This is
+[01:32] blitzscaling for agentic engineering.
+[01:34] [music] This is the quick fix. It's not
+[01:36] meditation, it's Xanax. It's not working
+[01:39] out, it's a GLP-1. This is a useful
+[01:42] local maximum for getting results at all
+[01:44] costs. Now that that's out of the way,
+[01:46] just because it isn't technically
+[01:48] correct doesn't mean your tiny software
+[01:50] factories can't be incredibly useful. In
+[01:53] TSF, [music] we stop worrying about
+[01:55] getting things right and we focus on
+[01:57] getting things shipped. If these ideas
+[01:59] [music] interest you and you want to get
+[02:00] things done at the speed of agents,
+[02:03] let's build some tiny software [music]
+[02:05] factories.
+[02:11] So, let's start by asking an obvious
+[02:14] question. What is a tiny [music]
+[02:16] software factory? A tiny software
+[02:18] factory is a software factory built to
+[02:20] solve one specific problem where a
+[02:22] proactive agent works around the clock
+[02:25] in a durable environment with you near
+[02:28] the loop instead of in it. There are key
+[02:30] pieces of this definition we need to
+[02:32] highlight. Built to solve one problem
+[02:34] with a proactive agent around the clock
+[02:37] in a durable environment with you near
+[02:39] the loop, not in the loop. You're going
+[02:42] to see these properties as repeat themes
+[02:44] as you master the tiny software factory.
+[02:46] Now that we're aligned on a definition,
+[02:48] let's ask the next important question.
+[02:50] Why is this valuable? What makes a tiny
+[02:53] software factory more valuable than
+[02:55] sitting in the terminal and prompting an
+[02:57] agent back and forth? In loop versus
+[03:00] near loop. The big advantage of your
+[03:02] tiny software factory is that you are
+[03:04] not required in the loop. Instead, you
+[03:07] move near the loop to give feedback,
+[03:09] make decisions, and approve work your
+[03:11] agent has already done. The feedback you
+[03:14] give your near loop agent creates a data
+[03:16] flywheel where the factory improves with
+[03:18] each signal you give it. Let's face it,
+[03:21] the facts are you and I are the
+[03:23] bottleneck, and 80% or more of the work
+[03:26] we're doing right now can run without us
+[03:28] with the right system in place. The tiny
+[03:31] software factory gets us there fast. In
+[03:34] loop, you prompt. Near loop, you
+[03:36] respond. The trick is having the right
+[03:38] system in place so you aren't stuck with
+[03:40] your bot in your dev chair. What else
+[03:42] makes a tiny software factory so
+[03:44] valuable? As you'll see, the tiny
+[03:45] software factory is rapidly deployable.
+[03:48] It's designed to be changed. With one
+[03:51] meta skill and one command, bam, you can
+[03:53] mount a new factory next to your code
+[03:56] base to solve a specific problem. Point
+[03:58] it at your repo, drop it in a sandbox,
+[04:00] and you go from zero to working agentic
+[04:03] system in minutes. Building a scalable
+[04:05] software factory takes a ton of time
+[04:08] even with powerful language models. The
+[04:09] result is always one more feature away,
+[04:12] and then you realize it doesn't do
+[04:14] everything for every scenario you're
+[04:16] trying to build for. The tiny software
+[04:18] factory gives you a massive advantage
+[04:20] because it's a highly compressed working
+[04:22] system with great defaults you can
+[04:24] rapidly deploy over and over. It's a
+[04:27] quick fix, and that's the point. What
+[04:29] else makes the tiny software factory
+[04:31] architecture you'll see so valuable?
+[04:33] It's extensible by design. It's designed
+[04:37] to be customized. Every prompt, tool,
+[04:39] hot key, extension, theme is all
+[04:42] accessible to you and your in-loop
+[04:44] agent. This means you can rapidly build
+[04:47] the system that builds the system,
+[04:48] speeding up your transition from in the
+[04:51] loop to near the loop. You can change it
+[04:53] so it bends to solve whatever problem
+[04:56] you need to solve. Initialize,
+[04:58] configure, specialize. Last but not
+[05:00] least, the tiny software factory
+[05:02] architecture is special because the
+[05:04] near-loop agents inside them don't stop
+[05:07] working for you. They contain a durable
+[05:09] agent plus a trigger inside a sandbox to
+[05:12] give you a proactive agent. You can
+[05:14] configure it so it starts working before
+[05:17] you wake up, and when you check in, the
+[05:18] work is already waiting for your review.
+[05:21] It doesn't wait for you to work, it
+[05:23] works for you, then waits. We have a
+[05:25] rapidly deployable agentic system you
+[05:28] can spin up at a moment's notice to
+[05:30] consistently solve one specific problem
+[05:32] around the clock with a proactive agent.
+[05:35] But, what [music] does a tiny software
+[05:37] factory actually look like?
+[05:44] Throughout tiny software factories,
+[05:46] we'll incrementally reveal features for
+[05:49] the tiny software factory using a
+[05:50] feature map. We're going to work through
+[05:52] four factory levels, and each factory
+[05:54] level contains unique features we'll
+[05:56] work through incrementally one by one.
+[05:59] Every feature sits on one of three
+[06:01] dimensions: effort required to unlock,
+[06:04] the value you get for putting in the
+[06:06] effort to build and use that feature.
+[06:08] And then every feature also has a
+[06:10] certain skill requirement that you must
+[06:13] meet. To keep this simple in the true
+[06:15] spirit of tiny software factory, we'll
+[06:17] [music] focus on value and effort.
+[06:24] The first and most important property of
+[06:27] tiny software factories is the empty
+[06:29] factory. The empty factory is the
+[06:32] template. It's fully built out. It has
+[06:34] every feature you need to specialize,
+[06:36] but no specialization yet. The empty
+[06:38] factory has no purpose until you give it
+[06:41] one. Let's take a look at a real empty
+[06:43] factory right now. In the browser, you
+[06:46] can see we have an empty factory here.
+[06:49] It's a minimal user interface with
+[06:51] [music] two sidebars we're going to work
+[06:53] through right now. Every feature we work
+[06:55] through is a capability you have [music]
+[06:57] that you can specialize to solve your
+[06:59] specific problems.
+[07:06] Let's look at what's inside the empty
+[07:08] factory with our next feature, the agent
+[07:10] on your right. Here, this is a durable
+[07:13] agent inside your factory that's always
+[07:15] on, always one message away. If we open
+[07:18] up the right sidebar here and right
+[07:20] ping, you can see we have a classic
+[07:22] agent ready to work for you. This is
+[07:24] something you're very familiar with.
+[07:26] Every application can be supercharged
+[07:28] with an agent so you move at the agentic
+[07:30] speed. Every software factory must
+[07:32] operate on something. What does this
+[07:34] empty factory operate on?
+[07:41] That brings us to our third feature. We
+[07:44] have lists on your left. Every product
+[07:47] is a list of something. What's in your
+[07:50] list? On the left here, we have pages.
+[07:52] So these are pages that you and your
+[07:54] agent operate on. As you'll see, this is
+[07:56] designed to be replaced. But with just
+[07:59] these three features, we can start
+[08:00] operating our tiny software factory.
+[08:02] Explain the basics of Python,
+[08:05] TypeScript, and Rust nested folders in
+[08:07] our pages. We'll kick that off. So you
+[08:09] can see Python, TypeScript, Rust in
+[08:11] folders in the tiny software factory.
+[08:13] It's creating these pages. It's
+[08:15] populating the tiny software factory.
+[08:17] There are pages we can go ahead and open
+[08:19] up every one of these and we can see
+[08:21] them. We have a start here and you can
+[08:22] see that our center view [music] has now
+[08:24] focused on the content.
+[08:31] That brings us to our next feature.
+[08:33] Focus is in the center. The primary
+[08:35] thing you and your agent work on is
+[08:37] located in the center of your tiny
+[08:39] software factory. Focus your attention
+[08:41] here. So for our empty software factory,
+[08:43] we have a simple generative UI based
+[08:45] application where we have pages, we have
+[08:47] artifacts, we have simple markdown
+[08:49] documents that our agent can operate,
+[08:51] build, tweak, and tune on our behalf.
+[08:54] You can see here we have the language
+[08:55] basics for Python, for TypeScript, and
+[08:58] for Rust generated by our agent and it's
+[09:01] all here for us to analyze, to look at,
+[09:03] and to tune and [music] tweak. But these
+[09:05] two calls our agent has just run hints
+[09:07] at a very important property of the tiny
+[09:09] software [music] factories.
+[09:15] The next key feature of the tiny
+[09:17] software factory is agent access parity.
+[09:20] Everything you can do, your agent can
+[09:22] do. Every control in the UI has a
+[09:24] matching agent tool. This has serious
+[09:27] implications that let you move much
+[09:29] faster than your competitors because
+[09:31] this allows you to move at the agentic
+[09:33] speed, the speed of agents. Let's focus
+[09:36] in on our agent here. List pages tools.
+[09:38] And our agent is listing all the tools
+[09:40] it has here for operating its pages. Our
+[09:43] agent truly has access to everything we
+[09:45] have inside [music] the tiny software
+[09:47] factory. Let's look at another core
+[09:49] feature and I'll show you exactly what I
+[09:51] mean.
+[09:56] You do not truly own your agent if you
+[09:59] do not have core four control. Context
+[10:02] model, prompt, tools. A true software
+[10:05] factory must give you full control over
+[10:07] your agents. In our user interface here,
+[10:10] we have that exactly. If we go to the
+[10:12] settings here, you can see we have a
+[10:14] comprehensive list of settings. We have
+[10:16] the essentials, we have the core four,
+[10:17] and then we have our advanced settings.
+[10:19] Let's talk about the core four, because
+[10:20] this is what makes up your agent. If you
+[10:22] master the core four, you'll master your
+[10:25] agent. And if you can configure and
+[10:26] customize it, you can build agents no
+[10:28] one else can. And in your tiny software
+[10:30] factory, that means everything. You can
+[10:32] see here, we have a context bar, we have
+[10:34] auto compaction at 200k, force
+[10:36] compaction at 500k. Once our agent
+[10:39] crosses the 200k threshold, it'll start
+[10:41] compacting in the background. We'll talk
+[10:43] about durable agents more in a moment,
+[10:45] but this is a key feature of them. You
+[10:46] can see we have model selection and
+[10:48] thinking level broken down into tiers.
+[10:50] This is very important. You don't want
+[10:52] to fix it on one model, you want to use
+[10:53] the right model for the job at the right
+[10:55] performance, cost, speed trade-off. We
+[10:58] have a system prompt that we have prompt
+[11:00] engineered. It does very specific things
+[11:02] inside the software factory. And then of
+[11:03] course, we have our tools. You can see
+[11:05] all the tools our agent has there. And
+[11:07] then we have some settings. So now we
+[11:09] have a couple key features stacking up
+[11:11] here. And we can showcase this. If we go
+[11:13] into the settings for the core four, you
+[11:15] can see context focus there. We have
+[11:17] auto compaction on. We can see our model
+[11:19] details. We can see all of our prompts
+[11:21] broken down, custom prompts, extension
+[11:24] prompts, which we'll get to, and custom
+[11:26] prompts that we can append to our agent
+[11:28] at any time. And of course, all the
+[11:30] tools our agents have access to, we can
+[11:31] see them in quick view mode here. We can
+[11:34] show the description of each, and then
+[11:35] we can show the full parameters in
+[11:37] whatever syntax we like to ingest our
+[11:40] tools in. But our features are starting
+[11:41] to stack up now. So let me show you what
+[11:43] it really means for your agent to have
+[11:45] agentic access parity. I'll close our
+[11:47] main view, focus on our agent, and then
+[11:49] I'll run disable all coding tools,
+[11:51] update thinking level to max. I'll kick
+[11:53] this off, and our agent can modify
+[11:56] itself. This is one of the key
+[11:57] advantages of having a durable agent
+[12:00] with the right tools. This is reflection
+[12:02] for agents. If you open our settings
+[12:04] now, you can see that our thinking is
+[12:06] now set to high. And if we go to our
+[12:07] tools, you can see that all of the
+[12:09] coding tools, read, write, edit, bash,
+[12:11] have now been disabled. Our agent has a
+[12:14] specific set of tools that we can tweak
+[12:15] and it can self-modify itself up to some
+[12:18] useful limit that again you can set.
+[12:20] Obviously, this capability can be very
+[12:22] dangerous if you don't control it
+[12:24] properly, but agentic access parity lets
+[12:27] your agent do everything you can do and
+[12:29] the most important customizations any
+[12:31] agentic engineer can make now is the
+[12:33] configuration of your agents and the
+[12:35] code surrounding your agents. And if you
+[12:37] can do that at the agentic speed, you'll
+[12:39] move a lot faster. We can [music]
+[12:41] customize the core four with agentic
+[12:43] access parity.
+[12:49] That leads us to another big feature
+[12:52] that the tiny software factory has that
+[12:54] you can tap into. You can build an
+[12:56] extensible harness. This tiny software
+[12:58] factory near loop agent is built on
+[13:01] slices of capability. What do I mean by
+[13:03] that? If we hop back into the settings
+[13:05] menu and we go down to our advanced
+[13:07] settings, inside of harness, you can see
+[13:09] that this agent is a composition of
+[13:12] several agent harnesses. We have the
+[13:14] factory harness. We have our coding
+[13:16] tools, which you can see here we've
+[13:17] fully disabled. We then have our page
+[13:20] harness. We have our image generation
+[13:22] harness, which is another layer of
+[13:23] capability, and then we have our factory
+[13:25] controls. Excluding the default coding
+[13:27] agent settings, we have four additional
+[13:30] layers we've stacked on top of this. And
+[13:32] this is fully customizable as you'll see
+[13:34] in subsequent lessons. We'll showcase
+[13:35] how to harness engineer new capabilities
+[13:38] inside your tiny software factory near
+[13:40] loop agent. Tools that feel great to
+[13:42] operate make for a better [music]
+[13:44] experience. And better experiences means
+[13:46] you're more willing to invest in the
+[13:48] tools you're building and using.
+[13:55] Which is why our next feature of our
+[13:56] tiny software factory is so important,
+[13:58] customizable DX UX. You can customize
+[14:02] your tiny software factory to the core.
+[14:03] We're talking themes, we're talking
+[14:04] updating the nav bars, we're talking hot
+[14:06] keys, animations. Shape your factory to
+[14:08] how you do your work. As you've likely
+[14:11] noticed, I've been opening the settings
+[14:13] with another hot key. If you want to
+[14:14] move fast, the tools you use must enable
+[14:17] you to do that. And the Tiny Software
+[14:19] Factory was built with this in mind.
+[14:21] What do I mean by that? Let's keep
+[14:22] extending on our theme here. So, I'll
+[14:24] run this. I'll say update to another
+[14:26] dark theme, then add context bar to the
+[14:28] agent nav bar, then add status in the
+[14:31] global nav bar on the left side. We'll
+[14:33] let our agent kick off, and it's going
+[14:34] to check the themes. It has full agent
+[14:37] access, and it's updated our settings.
+[14:39] So, couple things have changed. We have
+[14:41] our agent status in the nav bar. you saw
+[14:43] we updated our theme. So, once again, we
+[14:45] have agentic access to everything we can
+[14:47] do in the UI. This means we can move at
+[14:49] the speed of agents. And I mean full
+[14:52] agentic access parity, even simple
+[14:54] things like this. On select the page.
+[14:56] Everything you can do, your agent can do
+[14:58] as well. It's the small operations that
+[15:01] you take, that I take, that stack up big
+[15:04] over time. This context bar is a little
+[15:06] scrunched here. Move context bar into
+[15:08] full width mode. This is going to give
+[15:10] us more space. It's going to push it
+[15:11] down. There we go. You can take this.
+[15:13] You can customize it. You can really do
+[15:14] whatever you want with it. You can make
+[15:16] it your own. We're not going to use that
+[15:17] much context, so we're going to say drop
+[15:18] context bar. I don't quite like this
+[15:20] theme, so we're going to hop back into
+[15:21] our theme here in the settings, and I'm
+[15:23] just going to update this. We're going
+[15:24] to switch to a midnight. We can continue
+[15:26] to customize to our heart's content. Of
+[15:28] course, in the nav bar, you can see
+[15:29] exactly how our agent is organizing the
+[15:32] user interface. Fully customizable,
+[15:34] fully extendable. We can update the
+[15:35] animation so we can understand when our
+[15:38] agent is working versus when it's not.
+[15:39] And then we have hot keys. fully
+[15:41] configure, customize the application to
+[15:43] move very, very quickly. In a world
+[15:45] where software can change at light
+[15:47] speed, our core tooling, our core
+[15:50] applications must be built with that in
+[15:52] mind. This is liquid software. It's
+[15:54] meant to be changed. It's meant to be
+[15:56] customized. [music] That's a key
+[15:57] property of the Tiny Software Factory.
+[16:00] Switch back to default TSF theme. What
+[16:02] else makes the Tiny Software Factory
+[16:04] [music] so powerful?
+[16:10] If you want to move near the loop and
+[16:12] eventually out the loop, you're going to
+[16:14] need cron, and specifically cron
+[16:16] prompts. These are exactly what you
+[16:18] think they are. It's prompts on a
+[16:20] schedule. It's run by your agent while
+[16:22] you're away. Let's take a look at this
+[16:24] because this is a massive up level for
+[16:26] your agentic engineering because with
+[16:28] the tiny software factory, this idea is
+[16:30] rapidly deployable against any problem
+[16:33] you have. So, out of the box, the hot
+[16:35] key for cron is R. You can see here,
+[16:36] every cron has a simple set of items,
+[16:39] right? It has a name, it has a schedule,
+[16:41] and then it has a prompt. That's really
+[16:43] it. This lets you get up and running
+[16:45] with repeat schedules, repeat jobs
+[16:47] instantly with zero cost. Let's create a
+[16:50] cron and really start getting value out
+[16:51] of our near loop agent here. I'll say
+[16:53] add cron, every minute add a new file to
+[16:55] each of our programming languages
+[16:58] because remember we had it write out
+[16:59] some language basics here. And then I'll
+[17:01] say breakdown one new concept each.
+[17:04] We'll kick that off. Let's see what our
+[17:05] agent thinks about that. Two blockers,
+[17:07] has no file rights. That's fine. It
+[17:08] shouldn't need this. Every 3 minutes.
+[17:10] That's a lot per day. That's fine.
+[17:12] Confirm anyway. Use page tools. TSF
+[17:15] cron. There it goes. There it is. It's
+[17:17] kicking off that workflow every minute.
+[17:18] It's going to read the pages and it's
+[17:20] going to add a new fundamental into our
+[17:22] folders for every one of our languages.
+[17:24] Obviously, this is just a random example
+[17:27] to showcase what this really looks like,
+[17:28] what this really feels like inside your
+[17:30] tiny software factory. But you can see
+[17:32] here, we got context managers for
+[17:34] Python, classic width statements,
+[17:35] context manager decorator looks great.
+[17:37] TypeScript utility types looks great. We
+[17:40] got why it matters, common mistakes at
+[17:41] the bottom. Awesome. And then Rust
+[17:43] lifetimes, label of borrow, tell
+[17:45] compiler how long it's valid, why it
+[17:47] matters, common mistakes. Fantastic.
+[17:49] Here we are. We're getting to that point
+[17:51] where minute's almost complete and now
+[17:53] our agent is going [music] to get that
+[17:54] event once again. There it is. The cron
+[17:56] is running and it doesn't matter if
+[17:58] we're here. This is the important part.
+[18:00] I can close this. This is a durable
+[18:02] application. I can refresh as much as I
+[18:04] want. I can close this browser window if
+[18:06] I want and our agent is just going to
+[18:08] keep working, keep stacking up features.
+[18:10] Cron prompts are an incredibly
+[18:12] important, powerful, and fast, simple
+[18:15] way to add repeat jobs into your tiny
+[18:18] software factory. You're moving fast.
+[18:20] You're getting done, and now
+[18:21] [music] with this next feature, you're
+[18:23] turning your empty software factory into
+[18:25] a
+[18:26] >> [music]
