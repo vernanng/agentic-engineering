@@ -91,6 +91,7 @@
 </script>
 <header class="appbar">
   <h1>Loop App</h1>
+  <span id="leverage" class="muted"></span>
   <label class="theme">Dark <input type="checkbox" class="switch" id="theme" aria-label="Dark theme"></label>
 </header>
 <p><b>in-the-loop</b>: approve every step &nbsp; <b>near-the-loop</b>: auto, pauses on low-confidence / risky / failure &nbsp; <b>out-of-the-loop</b>: fully automatic, alerts on failure. Add <code>FAIL</code> to input to simulate a failure.</p>
@@ -106,6 +107,7 @@
     <button class="filled" onclick="createCron()">Add cron</button>
   </div>
   <div class="card"><h2>Pages</h2><div id="pages">loading…</div></div>
+  <div class="card"><h2>News feed</h2><div id="feed">no cards yet — run a news sweep</div></div>
 </aside>
 <main>
 <div class="card">
@@ -123,6 +125,7 @@
     <h3>Core four</h3><div id="cfg">loading…</div>
     <label class="field">Thinking <select id="thinking"><option>low</option><option>medium</option><option>high</option><option>max</option></select></label>
     <button onclick="saveConfig()">Save thinking level</button>
+    <h3>Executions</h3><div id="exec">loading…</div>
     <h3>Proposals</h3><div id="proposals">none</div>
     <h3>Tools</h3><div id="tools">loading…</div>
   </div>
@@ -195,6 +198,11 @@ async function refresh() {
   $("proposals").innerHTML = props.map(p => `<div>#${p.id} [${esc(p.status)}] <code>${esc(p.config)}</code>${p.status === "pending" ? ` <button class="filled" onclick="decideProposal(${p.id},'approve')">Approve</button><button class="danger" onclick="decideProposal(${p.id},'reject')">Reject</button>` : ""}</div>`).join("") || "none";
   const manifest = await api("/api/tools");
   $("tools").innerHTML = `<small>${manifest.tools.map(t => esc(t.name)).join(" · ")}</small>`;
+  const feed = await api("/api/items?status=presented");
+  $("feed").innerHTML = feed.map(i => `<div><b>${esc(i.title)}</b><br><small>Hype ${i.hype} · Facts ${i.facts} · Signal ${i.signal} · ${esc(i.source || "")}</small> <button class="textbtn" onclick="voteItem(${i.id},'up')">▲ up</button><button class="textbtn" onclick="voteItem(${i.id},'down')">▼ down</button></div>`).join("") || "no cards yet — run a news sweep";
+  const ex = await api("/api/executions");
+  $("leverage").textContent = `agents working now: ${ex.agents_working_now}`;
+  $("exec").innerHTML = `<small>jev calls ${ex.jev_calls} (mock ${ex.jev_mock_calls}) · jev cost $${ex.jev_cost.toFixed(5)} · step tokens ${ex.step_tokens} · runs ${esc(JSON.stringify(ex.runs_by_status))}</small>`;
 }
 let snackTimer = null;
 function snack(text) {
@@ -257,6 +265,7 @@ async function selectPage(id) {
 }
 async function saveConfig() { await act(() => api("/api/config", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({thinking_level: $("thinking").value})}), "Config saved"); }
 async function decideProposal(id, action) { await act(() => post(`/api/proposals/${id}/decide`, {action}), "Proposal " + action); }
+async function voteItem(id, vote) { await act(() => post(`/api/items/${id}/vote`, {vote}), "Voted " + vote); }
 $("theme").checked = document.documentElement.dataset.theme === "dark";
 $("theme").addEventListener("change", e => {
   document.documentElement.dataset.theme = e.target.checked ? "dark" : "light";

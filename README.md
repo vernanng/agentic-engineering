@@ -89,6 +89,9 @@ All endpoints are JSON under `/api`. When `LOOP_TOKEN` is set, send `X-Loop-Toke
 | `GET/POST /api/crons`, `DELETE /api/crons/:id` | Cron prompts: `{name, schedule_s, prompt, task_type_id}` — the agent works while you're away. |
 | `GET/POST /api/pages`, `POST/DELETE /api/pages/:id` | Agent-written pages, shown sandboxed in the center (Focus) pane. |
 | `GET/POST /api/proposals`, `POST /api/proposals/:id/decide` | Self-modification proposals; nothing applies until a human approves. Never from `out`. |
+| `POST /api/triggers/:id` · `POST /api/events` | Proactive triggers: webhook, and log events (4xx/5xx fast path; the rest are Jev-gated into an `incident` run). |
+| `GET/POST /api/items`, `POST /api/items/:id/vote` | News cards with Hype/Facts/Signal scores; votes move topic/source weights (the taste flywheel). |
+| `GET /api/executions` | Agents working now, Jev + step token/cost ledger. |
 | `POST /api/factories` | Initialize + configure + specialize in one call (same code as `python3 server.py --init-factory factory.json`). Starts in `in`. |
 
 ## Data
