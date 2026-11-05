@@ -2,3 +2,4 @@ loop.db
 *.db
 __pycache__/
 .venv/
+.env

@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    image: loop-app:${IMAGE_TAG:-latest}
+    container_name: loop-app
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - loop-data:/data
+
+volumes:
+  loop-data:
+    name: loop-data
+    external: true

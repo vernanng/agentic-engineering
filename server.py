@@ -2,7 +2,7 @@
 
 Stdlib only. Run: python3 server.py  (PORT env, default 8000, DB env LOOP_DB)
 """
-import json, os, sqlite3, threading, time
+import json, os, sqlite3, threading, time, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -12,11 +12,14 @@ CONF_THRESHOLD = 0.7
 RUN_TIMEOUT_S = 60          # run + decision-wait guardrail
 MAX_BODY = 1_000_000
 LOOP_TOKEN = os.environ.get("LOOP_TOKEN", "")  # if set, /api needs X-Loop-Token; unset = localhost dev only
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+OPENROUTER_ESCALATION_MODEL = os.environ.get("OPENROUTER_ESCALATION_MODEL", "openai/gpt-4o")
+OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "500"))
 PROMOTE_AFTER = {"in": 3, "near": 5}   # consecutive successes to earn promotion
 MODES = ["in", "near", "out"]
 
-# Demo executor templates: (name, confidence, risky). Output is canned in v1;
-# swap run_step() for a real LLM/tool call later, same signature.
+# Executor templates: (name, confidence, risky).
 TEMPLATES = {
     "summarize": [("draft summary", 0.95, False), ("extract key points", 0.90, False)],
     "classify": [("triage ticket", 0.55, False), ("assign team", 0.90, True)],
@@ -67,7 +70,7 @@ def audit(run_id, event, detail=""):
     x("INSERT INTO audit(run_id,event,detail,created_at) VALUES(?,?,?,?)",
       (run_id, event, detail, time.time()))
 
-# In-memory controls for live run threads (not persisted; runs are short demos).
+# In-memory controls for live run threads (not persisted).
 CTRL = {}  # run_id -> {"kill":bool,"paused":bool,"decision":dict|None,"wake":Event}
 
 def ctrl(run_id):
@@ -75,10 +78,42 @@ def ctrl(run_id):
                                     "decision": None, "wake": threading.Event()})
 
 def run_step(step_name, text, confidence):
-    """Demo executor. Input containing FAIL simulates a step failure."""
+    """Real executor via OpenRouter when OPENROUTER_API_KEY is set, else stub (no spend).
+
+    Input containing FAIL simulates a step failure (kept for failure-path tests).
+    Escalates to OPENROUTER_ESCALATION_MODEL when template confidence < threshold.
+    Returns (output, confidence); raises RuntimeError on any model/parse failure
+    so the loop's pause/alert handling engages.
+    """
     if "FAIL" in text:
         raise RuntimeError("simulated step failure (FAIL in input)")
-    return f"{step_name}: done for '{text[:40]}'", confidence
+    if not OPENROUTER_API_KEY:
+        return f"{step_name}: done for '{text[:40]}'", confidence
+    model = OPENROUTER_ESCALATION_MODEL if confidence < CONF_THRESHOLD else OPENROUTER_MODEL
+    prompt = (
+        f"Do this step: {step_name}\nInput:\n{text[:4000]}\n\n"
+        'Reply with ONLY JSON: {"output": "<result>", "confidence": <0.0-1.0>}'
+    )
+    req = urllib.request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps({"model": model, "temperature": 0.2,
+                         "max_tokens": OPENROUTER_MAX_TOKENS,
+                         "messages": [{"role": "user", "content": prompt}]}).encode(),
+        headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                 "Content-Type": "application/json", "X-Title": "loop-app"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            content = json.loads(r.read())["choices"][0]["message"]["content"]
+    except Exception as e:
+        raise RuntimeError(f"OpenRouter call failed: {e}") from e
+    try:
+        parsed = json.loads(content.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip())
+        out, conf = parsed["output"], float(parsed["confidence"])
+        if not isinstance(out, str) or not out:
+            raise ValueError("empty output")
+    except Exception as e:
+        raise RuntimeError(f"OpenRouter returned unparseable output: {content[:120]!r}") from e
+    return out, min(1.0, max(0.0, conf))
 
 def wait_decision(run_id, step_id, reason):
     """Block until decide/control acts. Returns decision dict or {'action':'kill'}."""

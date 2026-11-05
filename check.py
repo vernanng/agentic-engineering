@@ -1,5 +1,6 @@
 """End-to-end check through the real REST surface. python3 check.py (starts its own server on 18099)."""
 import json, os, subprocess, sys, tempfile, time, urllib.request, urllib.error
+from unittest import mock
 
 BASE = "http://localhost:18099"
 
@@ -24,6 +25,43 @@ def wait_run(rid, status, timeout=8):
             return r
         time.sleep(0.15)
     raise AssertionError(f"run {rid} never reached {status}: {call('GET', f'/api/runs/{rid}')}")
+
+class _FakeResp:
+    def __init__(self, content): self._b = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
+    def __enter__(self): return self
+    def __exit__(self, *a): pass
+    def read(self): return self._b
+
+def test_openrouter_mocked():
+    """run_step() OpenRouter path with a fake HTTP layer — no network, no spend."""
+    os.environ["LOOP_DB"] = tempfile.NamedTemporaryFile(suffix=".db", delete=False).name
+    os.environ["OPENROUTER_API_KEY"] = "test-key"
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import server
+    seen = {}
+    def fake(content):
+        def _open(req, timeout=None):
+            seen["model"] = json.loads(req.data)["model"]
+            return _FakeResp(content)
+        return _open
+    good = json.dumps({"output": "real summary", "confidence": 0.9})
+    with mock.patch.object(server.urllib.request, "urlopen", fake(good)):
+        assert server.run_step("draft summary", "hello world", 0.95) == ("real summary", 0.9)
+        assert seen["model"] == server.OPENROUTER_MODEL, seen
+        server.run_step("triage ticket", "hello world", 0.55)  # low template conf escalates
+        assert seen["model"] == server.OPENROUTER_ESCALATION_MODEL, seen
+    with mock.patch.object(server.urllib.request, "urlopen", fake("not json")):
+        try:
+            server.run_step("draft summary", "hello", 0.95); raise AssertionError("expected RuntimeError")
+        except RuntimeError:
+            pass
+    server.OPENROUTER_API_KEY = ""  # no key -> stub, no spend
+    assert server.run_step("draft summary", "hello", 0.95)[1] == 0.95
+    try:
+        server.run_step("draft summary", "FAIL x", 0.95); raise AssertionError("expected RuntimeError")
+    except RuntimeError:
+        pass
+    print("openrouter mock ok")
 
 def main():
     types = {t["name"]: t for t in call("GET", "/api/task-types")}
@@ -83,7 +121,9 @@ def main():
     print("ALL CHECKS PASSED")
 
 if __name__ == "__main__":
-    env = {**os.environ, "PORT": "18099", "LOOP_DB": tempfile.NamedTemporaryFile(suffix=".db", delete=False).name}
+    test_openrouter_mocked()
+    env = {k: v for k, v in os.environ.items() if k != "OPENROUTER_API_KEY"}  # gate never spends
+    env.update({"PORT": "18099", "LOOP_DB": tempfile.NamedTemporaryFile(suffix=".db", delete=False).name})
     srv = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "server.py")], env=env)
     try:
         for _ in range(50):
