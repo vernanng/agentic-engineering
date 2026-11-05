@@ -133,7 +133,9 @@ const post = (path, obj) => api(path, {method: "POST", headers: {"Content-Type":
 
 async function refresh() {
   const types = await api("/api/task-types");
+  const prevTt = $("tt").value;
   $("tt").innerHTML = types.map(t => `<option value="${t.id}">${esc(t.name)} (${esc(t.template)}, ${esc(t.mode)})</option>`).join("");
+  if ([...$("tt").options].some(o => o.value === prevTt)) $("tt").value = prevTt;
   $("types").innerHTML = types.map(t => `<div class="card">
     <b>${esc(t.name)}</b> <span class="badge ${esc(t.mode)}">${esc(t.mode)}-the-loop</span>
     template=${esc(t.template)} · consecutive successes=${t.consecutive_success} · failures=${t.failures}
@@ -146,7 +148,7 @@ async function refresh() {
   $("runs").innerHTML = runs.map(r => `<div>#${r.id} task=${r.task_type_id} mode=${esc(r.mode)} <span class="badge status">${esc(r.status)}</span> input=${esc(JSON.stringify(r.input))}
     <button class="textbtn" onclick="selectRun(${r.id})">view</button>
     <button class="textbtn" onclick="control(${r.id},'pause')">pause</button><button class="textbtn" onclick="control(${r.id},'resume')">resume</button><button class="danger" onclick="askKill(${r.id})">kill</button><button class="danger" onclick="askDelete(${r.id})">delete</button></div>`).join("") || "no runs yet";
-  if (selected) await selectRun(selected, true);
+  if (selected && document.activeElement?.id !== "edit") await selectRun(selected, true);
 }
 let snackTimer = null;
 function snack(text) {

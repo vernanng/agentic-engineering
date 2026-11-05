@@ -277,7 +277,7 @@ class H(BaseHTTPRequestHandler):
         return self.send_json(404, {"error": "not found"})
 
     def do_POST(self):
-        parts = [p for p in self.path.split("/") if p]
+        parts = [p for p in self.path.split("?")[0].split("/") if p]
         if parts[:1] == ["api"] and not self.authorized():
             return self.send_json(401, {"error": "unauthorized"})
         try:
@@ -287,9 +287,10 @@ class H(BaseHTTPRequestHandler):
         if not isinstance(data, dict):
             return self.send_json(400, {"error": "JSON object required"})
         if parts == ["api", "task-types"]:
-            name, template = data.get("name", "").strip(), data.get("template", "summarize")
-            if not name or template not in TEMPLATES or data.get("mode", "in") not in MODES:
+            name, template = data.get("name", ""), data.get("template", "summarize")
+            if not isinstance(name, str) or not name.strip() or template not in TEMPLATES or data.get("mode", "in") not in MODES:
                 return self.send_json(400, {"error": "name required, template must be summarize|classify|report, mode must be in|near|out"})
+            name = name.strip()
             try:
                 tid = x("INSERT INTO task_types(name,template,mode) VALUES(?,?,?)",
                         (name, template, data.get("mode", "in")))
@@ -313,6 +314,8 @@ class H(BaseHTTPRequestHandler):
         if parts == ["api", "runs"]:
             tt = q("SELECT * FROM task_types WHERE id=?", (data.get("task_type_id"),), one=True)
             if not tt: return self.send_json(400, {"error": "task_type_id not found"})
+            if not isinstance(data.get("input", ""), str):
+                return self.send_json(400, {"error": "input must be a string"})
             rid = x("INSERT INTO runs(task_type_id,input,mode,status,created_at) VALUES(?,?,?,'queued',?)",
                     (tt["id"], data.get("input", ""), tt["mode"], time.time()))
             audit(rid, "run_created", f"task={tt['name']} mode={tt['mode']}")

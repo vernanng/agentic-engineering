@@ -136,6 +136,21 @@ def main():
     call("GET", f"/api/runs/{done['id']}", None, 404)
     call("DELETE", f"/api/runs/{done['id']}", None, 404)
     print("delete ok")
+
+    # 6. bad input is a 400, never a dropped connection or a stranded run
+    call("POST", "/api/task-types", {"name": 123, "template": "summarize"}, 400)
+    call("POST", "/api/task-types", {"name": None, "template": "summarize"}, 400)
+    n_before = len(call("GET", "/api/runs"))
+    call("POST", "/api/runs", {"task_type_id": tt6["id"], "input": None}, 400)
+    call("POST", "/api/runs", {"task_type_id": tt6["id"], "input": {"k": 1}}, 400)
+    assert len(call("GET", "/api/runs")) == n_before, "rejected runs must not be created"
+    # POST routing ignores the query string, like GET/DELETE do
+    run = call("POST", "/api/runs?x=1", {"task_type_id": tt6["id"], "input": "ok"}, 201)
+    for _ in range(2):
+        wait_run(run["id"], "awaiting_decision")
+        call("POST", f"/api/runs/{run['id']}/decide?x=1", {"action": "approve"}, 200)
+    wait_run(run["id"], "completed")
+    print("validation ok")
     print("ALL CHECKS PASSED")
 
 if __name__ == "__main__":
