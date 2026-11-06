@@ -55,7 +55,7 @@ Secrets live in `.env` only (gitignored — see [.env.example](.env.example)). [
 | `OPENROUTER_MODEL` | `openai/gpt-4o-mini` |
 | `OPENROUTER_ESCALATION_MODEL` | `openai/gpt-4o` |
 | `OPENROUTER_MAX_TOKENS` | `500` |
-| `DEEPSEEK_FLASH_MODEL` | unset = cheap tier falls back to `OPENROUTER_MODEL` |
+| `OPENROUTER_CODING_MODEL` | unset = cheap tier falls back to `OPENROUTER_MODEL` |
 | `JEV_MODEL` | `~typesafe/jev-latest` |
 | `JEV_MOCK` | unset = off; `1` = labelled dev mock |
 | `JEV_DIR` | unset = `prompt_engineering/jev/` (else next to the binary) |

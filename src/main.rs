@@ -191,7 +191,7 @@ fn default_config() -> Config {
         jev_model: env_or("JEV_MODEL", "~typesafe/jev-latest"),
         news_sources: vec![],
         cheap_model: {
-            let d = std::env::var("DEEPSEEK_FLASH_MODEL").unwrap_or_default();
+            let d = std::env::var("OPENROUTER_CODING_MODEL").unwrap_or_default();
             if d.is_empty() {
                 env_or("OPENROUTER_MODEL", "openai/gpt-4o-mini")
             } else {

@@ -145,6 +145,34 @@ fn gate() {
         );
         assert!(ev.get("started").is_some(), "{ev}");
     }
+    // Cheap tier honors OPENROUTER_CODING_MODEL, else falls back to OPENROUTER_MODEL.
+    let dbc = std::env::temp_dir().join(format!("gate-cheap-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbc);
+    {
+        let _srv = boot(
+            dbc.to_str().unwrap(),
+            &[
+                ("OPENROUTER_API_KEY", "test-key"),
+                ("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+                ("OPENROUTER_CODING_MODEL", "openai/gpt-4o"),
+            ],
+        );
+        let cfg = call("GET", "/api/config", None, None);
+        assert_eq!(cfg["cheap_model"], json!("openai/gpt-4o"), "{cfg}");
+    }
+    let dbc = std::env::temp_dir().join(format!("gate-cheapfb-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbc);
+    {
+        let _srv = boot(
+            dbc.to_str().unwrap(),
+            &[
+                ("OPENROUTER_API_KEY", "test-key"),
+                ("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+            ],
+        );
+        let cfg = call("GET", "/api/config", None, None);
+        assert_eq!(cfg["cheap_model"], json!("openai/gpt-4o-mini"), "{cfg}");
+    }
     let db = std::env::temp_dir().join(format!("gate-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&db);
     let srv = boot(db.to_str().unwrap(), &[("OPENROUTER_API_KEY", "test-key")]);
