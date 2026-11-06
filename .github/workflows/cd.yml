@@ -32,4 +32,4 @@ jobs:
           OPENROUTER_API_BASE: ${{ secrets.OPENROUTER_API_BASE }}
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: cargo run --release --bin deploy
+        run: $HOME/.cargo/bin/cargo run --release --bin deploy
