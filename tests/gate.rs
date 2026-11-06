@@ -93,7 +93,9 @@ fn mock_server() {
 struct Srv(Child);
 impl Drop for Srv {
     fn drop(&mut self) {
+        // shortcut: fixed test port, so the old listener must be gone before the next boot; use ephemeral ports when parallel boots matter.
         let _ = self.0.kill();
+        let _ = self.0.wait();
     }
 }
 
@@ -109,16 +111,17 @@ fn boot(db: &str, extra: &[(&str, &str)]) -> Srv {
     for (k, v) in extra {
         cmd.env(k, v);
     }
-    let child = cmd.spawn().unwrap();
+    let mut child = cmd.spawn().unwrap();
     for _ in 0..50 {
         if let Ok(r) = ureq::get(&format!("{BASE}/api/task-types")).call() {
             if r.status() == 200 {
-                break;
+                return Srv(child);
             }
         }
         std::thread::sleep(Duration::from_millis(200));
     }
-    Srv(child)
+    let _ = child.kill();
+    panic!("gate boot: no 200 from {BASE}/api/task-types after 10s");
 }
 
 #[test]
