@@ -19,7 +19,7 @@ cargo test          # gate: boots the real binary, mocked models, no spend
 git push origin main  # the only deploy: CD gate -> DB backup -> release build -> swap binary -> health check -> rollback on failure
 ```
 
-There is no local deploy. A non-docs push to `main` deploys on this machine via GitHub Actions ([.github/workflows/cd.yml](.github/workflows/cd.yml), self-hosted macOS runner); Markdown/`docs/**`-only pushes do not trigger it, and the same job can be run manually (`workflow_dispatch`). On success the app is live at `http://localhost:8000`; on health-check failure CD rolls back to the previous binary if one exists, else stops and fails. Logs: `tail -f loop-app.log`. Stop (launchd, only if the service was installed manually): `launchctl bootout "gui/$(id -u)/com.loop-app"`. Bare run without the gate: `cargo run --release`.
+There is no local deploy. A non-docs push to `main` deploys to the VM via GitHub Actions ([.github/workflows/cd.yml](.github/workflows/cd.yml), GitHub-hosted runner over SSH, then [scripts/deploy.sh](scripts/deploy.sh) under systemd); Markdown/`docs/**`-only pushes do not trigger it, and the same job can be run manually (`workflow_dispatch`). On success the app is live at `http://localhost:8000` on the VM (public `:8000` per `.env` `HOST`); on health-check failure CD rolls back to the previous binary if one exists, else stops and fails. Logs: `tail -f loop-app.log`. Stop: `systemctl stop loop-app`. Bare run without the gate: `cargo run --release`.
 
 Binaries are kept per short git SHA in `releases/`; the previous binary is the rollback. Rollback swaps the binary only; the DB is not restored.
 
