@@ -177,6 +177,19 @@ fn gate() {
     let _ = std::fs::remove_file(&db);
     let srv = boot(db.to_str().unwrap(), &[("OPENROUTER_API_KEY", "test-key")]);
 
+    // Runs list must never stick on "loading…": page carries a token field and
+    // shows fetch errors (e.g. missing X-Loop-Token) in place of the spinner.
+    let page = ureq::get(&format!("{BASE}/"))
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+    assert!(page.contains("id=\"token\""), "token input missing");
+    assert!(
+        page.contains("could not load runs"),
+        "refresh error text missing"
+    );
+
     call(
         "POST",
         "/api/task-types",

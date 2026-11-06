@@ -92,6 +92,7 @@
 <header class="appbar">
   <h1>Loop App</h1>
   <span id="leverage" class="muted"></span>
+  <label class="theme">Token <input id="token" type="password" size="10" placeholder="X-Loop-Token" aria-label="API token"></label>
   <label class="theme">Dark <input type="checkbox" class="switch" id="theme" aria-label="Dark theme"></label>
 </header>
 <p><b>in-the-loop</b>: approve every step &nbsp; <b>near-the-loop</b>: auto, pauses on low-confidence / risky / failure &nbsp; <b>out-of-the-loop</b>: fully automatic, alerts on failure. Add <code>FAIL</code> to input to simulate a failure.</p>
@@ -170,6 +171,14 @@ async function api(path, opts) {
 const post = (path, obj) => api(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(obj || {})});
 
 async function refresh() {
+  // Never leave the page stuck on "loading…": surface fetch errors (e.g. a missing API token) in place.
+  try { await load(); } catch (e) {
+    $("loadbar").style.display = "none";
+    if ($("runs").textContent.includes("loading")) $("runs").textContent = "could not load runs: " + e.message + " — enter the API token above.";
+    snack(String(e.message));
+  }
+}
+async function load() {
   const types = await api("/api/task-types");
   const prevTt = $("tt").value;
   $("tt").innerHTML = types.map(t => `<option value="${t.id}">${esc(t.name)} (${esc(t.template)}, ${esc(t.mode)})</option>`).join("");
@@ -270,6 +279,11 @@ $("theme").checked = document.documentElement.dataset.theme === "dark";
 $("theme").addEventListener("change", e => {
   document.documentElement.dataset.theme = e.target.checked ? "dark" : "light";
   try { localStorage.setItem("md3_theme", document.documentElement.dataset.theme); } catch (err) {}
+});
+$("token").value = localStorage.getItem("loop_token") || "";
+$("token").addEventListener("change", e => {
+  try { localStorage.setItem("loop_token", e.target.value.trim()); } catch (err) {}
+  refresh();
 });
 refresh();
 setInterval(refresh, 1500);
