@@ -102,12 +102,41 @@ fn healthy(token: &str) -> bool {
     matches!(req.call(), Ok(r) if (200..300).contains(&r.status()))
 }
 
+fn same_bytes(a: &Path, b: &Path) -> bool {
+    match (std::fs::read(a), std::fs::read(b)) {
+        (Ok(x), Ok(y)) => x == y,
+        _ => false,
+    }
+}
+
 fn restart(root: &Path, bin: &str) -> Result<(), String> {
     let link = root.join("releases/loop-app-latest");
     let _ = std::fs::remove_file(&link);
     std::os::unix::fs::symlink(bin, &link).map_err(|e| format!("link latest: {e}"))?;
     std::fs::write(root.join(".loop-app.current"), bin)
         .map_err(|e| format!("record current: {e}"))?;
+    // The unit file is tracked in repo: install it when it changed, else a
+    // deleted launcher (like run-app.sh) leaves restarts failing with 203.
+    // Needs sudoers for the exact cp + daemon-reload lines (see AGENTS.md).
+    let unit = root.join("scripts/loop-app.service");
+    let installed = PathBuf::from("/etc/systemd/system/loop-app.service");
+    if !same_bytes(&unit, &installed) {
+        if is_root() {
+            std::fs::copy(&unit, &installed).map_err(|e| format!("install unit: {e}"))?;
+            run("systemctl", &["daemon-reload"])?;
+        } else {
+            run(
+                "sudo",
+                &[
+                    "-n",
+                    "/usr/bin/cp",
+                    unit.to_str().ok_or("unit path")?,
+                    installed.to_str().ok_or("installed path")?,
+                ],
+            )?;
+            run("sudo", &["-n", "systemctl", "daemon-reload"])?;
+        }
+    }
     systemctl("restart")
 }
 
