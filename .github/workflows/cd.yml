@@ -5,6 +5,8 @@ name: CD
 # VM_SSH_KEY), which pulls main into the real checkout and runs
 # scripts/deploy.sh there (gate, backup, build, swap, health-check,
 # rollback via systemd). Free: GitHub-hosted minutes are $0 on public repos.
+# LOOP_TOKEN / OPENROUTER_API_BASE / TURSO_* secrets are the source of truth:
+# they are piped to the VM as .env.cd and merged into .env by deploy.sh.
 on:
   push:
     branches: [main]
@@ -24,12 +26,21 @@ jobs:
           VM_HOST: ${{ secrets.VM_HOST }}
           VM_USER: ${{ secrets.VM_USER }}
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
+          OPENROUTER_API_BASE: ${{ secrets.OPENROUTER_API_BASE }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
         run: |
           set -euo pipefail
           install -m 700 -d ~/.ssh
           printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
+          # Sync GitHub-managed secrets to the VM (stdin: never in argv/logs).
+          printf 'LOOP_TOKEN=%s\nOPENROUTER_API_BASE=%s\nTURSO_DATABASE_URL=%s\nTURSO_AUTH_TOKEN=%s\n' \
+            "$LOOP_TOKEN" "$OPENROUTER_API_BASE" "$TURSO_DATABASE_URL" "$TURSO_AUTH_TOKEN" \
+            | ssh -i ~/.ssh/id_ed25519 "$VM_USER@$VM_HOST" \
+              'cat > /root/project/agentic-engineering/.env.cd && chmod 600 /root/project/agentic-engineering/.env.cd'
           ssh -i ~/.ssh/id_ed25519 "$VM_USER@$VM_HOST" \
             'cd /root/project/agentic-engineering && git pull --ff-only origin main && bash scripts/deploy.sh'
       - name: Show service log on failure

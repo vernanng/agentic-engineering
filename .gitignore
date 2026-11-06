@@ -3,6 +3,7 @@ loop.db
 __pycache__/
 .venv/
 .env
+.env.cd
 .vscode/
 target/
 releases/

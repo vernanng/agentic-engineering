@@ -72,6 +72,8 @@ There is no local deploy. A non-docs push to `main` triggers [.github/workflows/
 6. Health-check `GET /api/task-types`
 7. Auto-rollback to the previous binary on failure — only when a previous binary exists, else stop and fail. The DB is not restored.
 
+`LOOP_TOKEN`, `OPENROUTER_API_BASE`, `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are managed in GitHub secrets: [cd.yml](.github/workflows/cd.yml) pipes them to the VM as `.env.cd` on each deploy and [scripts/merge-env.sh](scripts/merge-env.sh) merges the non-empty ones into `.env` (self-check: `bash scripts/test-merge-env.sh`). Edit them in GitHub, not in `.env` — hand edits are overwritten on the next deploy. All other `.env` keys stay VM-only.
+
 ## The loop
 
 Build `in` >> `near` >> `out`. `out` is last — never start a new task type in `out` by policy; the API does not yet enforce it (direct create/mode-set bypass, see Follow-ups).
