@@ -97,6 +97,88 @@ impl Drop for Srv {
     }
 }
 
+fn complete_run(ttid: i64) {
+    // Drive one run to completion, approving every paused step.
+    let run = call(
+        "POST",
+        "/api/runs",
+        Some(json!({"task_type_id": ttid, "input": "ok"})),
+        Some(201),
+    );
+    let rid = run["id"].as_i64().unwrap();
+    let end = Instant::now() + Duration::from_secs(150);
+    loop {
+        if Instant::now() > end {
+            panic!("run {rid} never completed");
+        }
+        let r = call("GET", &format!("/api/runs/{}", rid), None, None);
+        match r["status"].as_str() {
+            Some("completed") => return,
+            Some("awaiting_decision") => {
+                call(
+                    "POST",
+                    &format!("/api/runs/{}/decide", rid),
+                    Some(json!({"action": "approve"})),
+                    Some(200),
+                );
+            }
+            Some("failed") | Some("killed") => panic!("run {rid} ended {}: {r}", r["status"]),
+            _ => std::thread::sleep(Duration::from_millis(500)),
+        }
+    }
+}
+
+fn assert_eligible(tid: i64) {
+    let me = call("GET", "/api/task-types", None, None)
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"].as_i64() == Some(tid))
+        .unwrap()
+        .clone();
+    assert_eq!(me["promotion_eligible"], json!(true), "{me}");
+}
+
+fn promote_to(tid: i64, mode: &str) {
+    let p = call(
+        "POST",
+        &format!("/api/task-types/{}/promote", tid),
+        Some(json!({})),
+        Some(200),
+    );
+    assert_eq!(p["mode"], json!(mode), "{p}");
+}
+
+fn loop_harness(name: &str) {
+    // Full in >> near >> out loop: 3 runs, promote, 5 runs, promote, 1 run.
+    let tt = call(
+        "POST",
+        "/api/task-types",
+        Some(json!({"name": name, "template": "summarize", "mode": "in"})),
+        Some(201),
+    );
+    let tid = tt["id"].as_i64().unwrap();
+    for _ in 0..3 {
+        complete_run(tid);
+    }
+    assert_eligible(tid);
+    promote_to(tid, "near");
+    for _ in 0..5 {
+        complete_run(tid);
+    }
+    assert_eligible(tid);
+    promote_to(tid, "out");
+    complete_run(tid);
+    let me = call("GET", "/api/task-types", None, None)
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"].as_i64() == Some(tid))
+        .unwrap()
+        .clone();
+    assert_eq!(me["mode"], json!("out"), "{me}");
+}
+
 fn boot(db: &str, extra: &[(&str, &str)]) -> Srv {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_loop-app"));
     cmd.env("PORT", "18099")
@@ -295,6 +377,44 @@ fn gate() {
             .iter()
             .any(|a| a["event"] == "alert"));
         println!("msp spawn failure ok");
+    }
+    // Harness: full in >> near >> out loop on the exec backend (deterministic
+    // fixture, no spend, no login).
+    if has_rustc {
+        let fake_loop = exec_dir.join("fake-muse");
+        let dbl = std::env::temp_dir().join(format!("gate-loop-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&dbl);
+        {
+            let _srv = boot(
+                dbl.to_str().unwrap(),
+                &[
+                    ("LOOP_EXEC_BACKEND", "1"),
+                    ("MUSE_BIN", fake_loop.to_str().unwrap()),
+                ],
+            );
+            loop_harness("check-loop-exec");
+            println!("loop harness (exec) ok");
+        }
+    }
+    // Same loop on MSP with Meta billing (real login, real spend); skipped
+    // without a login so CI stays free.
+    let meta_login = Command::new("muse")
+        .arg("usage")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if meta_login {
+        let dbm = std::env::temp_dir().join(format!("gate-loop-msp-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&dbm);
+        {
+            let _srv = boot(dbm.to_str().unwrap(), &[("LOOP_MSP_BACKEND", "1")]);
+            loop_harness("check-loop-msp");
+            println!("loop harness (msp) ok");
+        }
+    } else {
+        println!("no muse login, skipping msp harness");
     }
     let db = std::env::temp_dir().join(format!("gate-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&db);
