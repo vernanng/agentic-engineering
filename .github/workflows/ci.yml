@@ -1,7 +1,9 @@
 name: CI
 
-# Fast feedback off this machine: GitHub-hosted, cached, debug gate.
-# Deploy stays in cd.yml (self-hosted, on push to main only).
+# Fast feedback off this machine: cached, debug gate. Branch pushes run on
+# the VPS self-hosted runner (label loop-vps); pull_request runs stay on
+# GitHub-hosted Ubuntu because this repo is public and fork code must never
+# execute on the VPS. Deploy stays in cd.yml (push to main only).
 on:
   push:
     branches-ignore: [main]
@@ -15,7 +17,7 @@ concurrency:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["self-hosted", "loop-vps"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2

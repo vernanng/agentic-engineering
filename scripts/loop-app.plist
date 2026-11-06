@@ -9,8 +9,7 @@
   <key>Label</key><string>com.loop-app</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
-    <string>/Users/vernantjoa/projects/agentic-engineering/scripts/run-app.sh</string>
+    <string>/Users/vernantjoa/projects/agentic-engineering/releases/loop-app-latest</string>
   </array>
   <key>WorkingDirectory</key><string>/Users/vernantjoa/projects/agentic-engineering</string>
   <key>EnvironmentVariables</key>

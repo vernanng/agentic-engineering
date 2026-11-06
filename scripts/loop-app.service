@@ -5,8 +5,9 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/root/project/agentic-engineering
-# run-app.sh loads .env (HOST/PORT/LOOP_DB) and execs releases/loop-app-latest.
-ExecStart=/root/project/agentic-engineering/scripts/run-app.sh
+# .env comes from EnvironmentFile; the binary needs no launcher script.
+EnvironmentFile=/root/project/agentic-engineering/.env
+ExecStart=/root/project/agentic-engineering/releases/loop-app-latest
 Restart=on-failure
 RestartSec=2
 StandardOutput=append:/root/project/agentic-engineering/loop-app.log

@@ -9,9 +9,10 @@
 | --- | --- |
 | [src/main.rs](src/main.rs) | Rust app — single binary `loop-app` |
 | [src/bin/client.rs](src/bin/client.rs) | Detached CLI `client` (`LOOP_URL`, default `http://localhost:8000`) |
+| [src/bin/deploy.rs](src/bin/deploy.rs) | Deploy binary (gate → backup → build → restart → health-check) |
 | [static/index.html](static/index.html) | UI |
 | [tests/gate.rs](tests/gate.rs) | Gate tests |
-| [scripts/](scripts/run-app.sh) | launchd entry point (`run-app.sh`) and service (`loop-app.plist`, label `com.loop-app`) |
+| [scripts/](scripts/loop-app.service) | Service units only (`loop-app.plist`, label `com.loop-app`) — Rust only, no shell scripts in this repo |
 | [.github/workflows/cd.yml](.github/workflows/cd.yml) | CD — the only deploy: gate → backup → build → restart → health-check on push to `main` |
 
 ## Quick start
@@ -27,9 +28,10 @@ git push origin main   # the only deploy — CD runs it, see Deployment
 
 ## Git workflow
 
+- Agent mode is near-the-loop: work through routine steps (read, edit, test) without asking, and pause only for consequential gates — pushing to `main` (triggers prod deploy), destructive operations, or genuinely ambiguous scope. Report when done or blocked.
 - One branch per task. **Never code directly on `main`.**
 - Merge to `main` first, then deploy.
-- Push to `main` is the only deploy: a non-docs push triggers [cd.yml](.github/workflows/cd.yml) on a GitHub-hosted runner, which SSHes to the VM (this checkout) and runs [scripts/deploy.sh](scripts/deploy.sh); `**.md`/`docs/**`-only pushes are ignored, and the same job can be dispatched manually. There is no local deploy.
+- Push to `main` is the only deploy: a non-docs push triggers [cd.yml](.github/workflows/cd.yml) on the VPS runner, which runs the deploy binary (`cargo run --release --bin deploy`); `**.md`/`docs/**`-only pushes are ignored, and the same job can be dispatched manually. There is no local deploy.
 - **Never push without an explicit ask.**
 
 ## Running locally
@@ -40,7 +42,7 @@ Bare run (no gate, no rollback):
 cargo run --release
 ```
 
-Secrets live in `.env` only (gitignored — see [.env.example](.env.example)). [scripts/run-app.sh](scripts/run-app.sh) (systemd entry point) sources `.env`. Bare `cargo run` does **not**.
+Secrets live in `.env` only (gitignored — see [.env.example](.env.example)). Under systemd `.env` comes from `EnvironmentFile` in [scripts/loop-app.service](scripts/loop-app.service) (launchd: `EnvironmentVariables` in the plist). Bare `cargo run` does **not** load `.env`.
 
 | Variable | Default / notes |
 | --- | --- |
@@ -62,17 +64,19 @@ Secrets live in `.env` only (gitignored — see [.env.example](.env.example)). [
 
 ## Deployment
 
-There is no local deploy. A non-docs push to `main` triggers [.github/workflows/cd.yml](.github/workflows/cd.yml) on a GitHub-hosted runner, which SSHes to the VM (secrets `VM_HOST`/`VM_USER`/`VM_SSH_KEY`), pulls `main` into this checkout (`/root/project/agentic-engineering`) and runs [scripts/deploy.sh](scripts/deploy.sh), which performs, in order:
+There is no local deploy. A non-docs push to `main` triggers [.github/workflows/cd.yml](.github/workflows/cd.yml) on the VPS self-hosted runner (label `loop-vps`), which runs the deploy binary (`cargo run --release --bin deploy`, [src/bin/deploy.rs](src/bin/deploy.rs)) in this checkout (`/root/project/agentic-engineering`). The binary pulls `main` itself, then performs, in order:
 
 1. Gate (`cargo test --release --locked --test gate`)
 2. DB backup to `backups/`
 3. `cargo build --release`
 4. Install binary to `releases/loop-app-<short-sha>` (recorded in `.loop-app.current`, symlinked as `releases/loop-app-latest`)
-5. Restart: `systemctl restart loop-app` (unit [scripts/loop-app.service](scripts/loop-app.service), entry [scripts/run-app.sh](scripts/run-app.sh); binds `HOST` from `.env`, currently `0.0.0.0:8000`)
+5. Restart: `systemctl restart loop-app` (unit [scripts/loop-app.service](scripts/loop-app.service), `ExecStart` points at `releases/loop-app-latest` with `.env` from `EnvironmentFile`; binds `HOST` from `.env`, currently `0.0.0.0:8000`)
 6. Health-check `GET /api/task-types`
 7. Auto-rollback to the previous binary on failure — only when a previous binary exists, else stop and fail. The DB is not restored.
 
-`LOOP_TOKEN`, `OPENROUTER_API_BASE`, `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are managed in GitHub secrets: [cd.yml](.github/workflows/cd.yml) pipes them to the VM as `.env.cd` on each deploy and [scripts/merge-env.sh](scripts/merge-env.sh) merges the non-empty ones into `.env` (self-check: `bash scripts/test-merge-env.sh`). Edit them in GitHub, not in `.env` — hand edits are overwritten on the next deploy. All other `.env` keys stay VM-only.
+`LOOP_TOKEN`, `OPENROUTER_API_BASE`, `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are managed in GitHub secrets: [cd.yml](.github/workflows/cd.yml) passes them to the deploy binary, which writes `.env.cd` and merges the non-empty ones into `.env` (merge covered by `cargo test --bin deploy`). Edit them in GitHub, not in `.env` — hand edits are overwritten on the next deploy. All other `.env` keys stay VM-only. (`VM_HOST`/`VM_USER`/`VM_SSH_KEY` are retired — deploys no longer SSH.)
+
+Runner one-time setup (on the VM, as root): `useradd -m runner`, install `curl git build-essential` plus rustup as `runner`, then register the latest `actions/runner` release with `--labels loop-vps --unattended` and `./svc.sh install runner && ./svc.sh start`. Then `chown -R runner:runner /root/project/agentic-engineering` (deploy pulls and builds there) and allow restarts without a password: `runner ALL=(root) NOPASSWD: /usr/bin/systemctl restart loop-app, /usr/bin/systemctl stop loop-app` in `/etc/sudoers.d/loop-app`.
 
 ## The loop
 
@@ -128,7 +132,7 @@ All routes are `/api/*` and speak JSON. The full route list is not copied here: 
 cargo test
 ```
 
-- Same gate runs on GitHub-hosted CI ([ci.yml](.github/workflows/ci.yml), cached debug build) for branches and PRs; CD re-runs it in release on the VM (via [scripts/deploy.sh](scripts/deploy.sh)).
+- Same gate runs in CI ([ci.yml](.github/workflows/ci.yml), cached debug build): branch pushes use the VPS runner, pull requests use GitHub-hosted Ubuntu (public repo — fork code never runs on the VPS); CD re-runs it in release on the VM (via the deploy binary).
 - Boots the real binary on port `18099` with a temp DB.
 - Mocks OpenRouter + Jev locally — no network, no spend.
 - Covers: all modes, promotion, tools/config/pages/proposals/slices/cron/factory, triggers, the sweep, and the CLI. It reads a copy of the real `loop.db` only when that file is present locally; a fresh checkout skips that check. The whole gate is one sequential `#[test]`.
