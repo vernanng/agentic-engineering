@@ -48,6 +48,39 @@ fn wait_run(rid: i64, status: &str) -> Value {
         call("GET", &format!("/api/runs/{rid}"), None, None)
     );
 }
+fn approve(run_id: i64, body: Value) {
+    // decide answers 200 before the run thread consumes the decision, so a fast
+    // follow-up approve can double-hit the same step; wait until the approved
+    // step leaves awaiting_decision (or the run ends) before returning.
+    let before: Vec<i64> = call("GET", &format!("/api/runs/{run_id}"), None, None)["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|s| s["status"] == "awaiting_decision")
+        .map(|s| s["id"].as_i64().unwrap())
+        .collect();
+    call(
+        "POST",
+        &format!("/api/runs/{run_id}/decide"),
+        Some(body),
+        Some(200),
+    );
+    let end = Instant::now() + Duration::from_secs(8);
+    while Instant::now() < end {
+        let r = call("GET", &format!("/api/runs/{run_id}"), None, None);
+        if ["completed", "killed", "failed"].contains(&r["status"].as_str().unwrap_or("")) {
+            return;
+        }
+        let stale = r["steps"].as_array().unwrap().iter().any(|s| {
+            s["status"] == "awaiting_decision" && before.contains(&s["id"].as_i64().unwrap_or(-1))
+        });
+        if !stale {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    panic!("run {run_id} decision never took effect");
+}
 
 static JEV_CALLS: AtomicUsize = AtomicUsize::new(0);
 fn mock_server() {
@@ -214,18 +247,11 @@ fn gate() {
     );
     let r = wait_run(run["id"].as_i64().unwrap(), "awaiting_decision");
     assert!(r["steps"].as_array().unwrap().len() == 1);
-    call(
-        "POST",
-        &format!("/api/runs/{}/decide", run["id"]),
-        Some(json!({"action":"approve"})),
-        Some(200),
-    );
+    approve(run["id"].as_i64().unwrap(), json!({"action":"approve"}));
     wait_run(run["id"].as_i64().unwrap(), "awaiting_decision");
-    call(
-        "POST",
-        &format!("/api/runs/{}/decide", run["id"]),
-        Some(json!({"action":"approve","edited_output":"human final"})),
-        Some(200),
+    approve(
+        run["id"].as_i64().unwrap(),
+        json!({"action":"approve","edited_output":"human final"}),
     );
     let r = wait_run(run["id"].as_i64().unwrap(), "completed");
     assert_eq!(r["steps"][1]["output"], json!("human final"));
@@ -283,12 +309,7 @@ fn gate() {
         "{}",
         r["steps"]
     );
-    call(
-        "POST",
-        &format!("/api/runs/{}/decide", run["id"]),
-        Some(json!({"action":"approve"})),
-        Some(200),
-    );
+    approve(run["id"].as_i64().unwrap(), json!({"action":"approve"}));
     let r = wait_run(run["id"].as_i64().unwrap(), "awaiting_decision");
     assert!(
         r["steps"][1]["pause_reason"]
@@ -298,12 +319,7 @@ fn gate() {
         "{}",
         r["steps"]
     );
-    call(
-        "POST",
-        &format!("/api/runs/{}/decide", run["id"]),
-        Some(json!({"action":"approve"})),
-        Some(200),
-    );
+    approve(run["id"].as_i64().unwrap(), json!({"action":"approve"}));
     wait_run(run["id"].as_i64().unwrap(), "completed");
     println!("near-the-loop ok");
 
@@ -352,12 +368,7 @@ fn gate() {
         );
         for _ in 0..2 {
             wait_run(run["id"].as_i64().unwrap(), "awaiting_decision");
-            call(
-                "POST",
-                &format!("/api/runs/{}/decide", run["id"]),
-                Some(json!({"action":"approve"})),
-                Some(200),
-            );
+            approve(run["id"].as_i64().unwrap(), json!({"action":"approve"}));
         }
         wait_run(run["id"].as_i64().unwrap(), "completed");
     }
