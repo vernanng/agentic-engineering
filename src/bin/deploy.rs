@@ -128,6 +128,10 @@ fn install(root: &Path, name: &str, sha: &str) -> Result<Option<String>, String>
 }
 
 fn deploy() -> Result<(), String> {
+    // Runner services start with a minimal PATH; cargo lives under the user's home.
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/runner".into());
+    let path = std::env::var("PATH").unwrap_or_default();
+    std::env::set_var("PATH", format!("{home}/.cargo/bin:{path}"));
     let root = std::env::current_dir().map_err(|e| format!("cwd: {e}"))?;
     println!("==> sync main");
     run("git", &["fetch", "origin"])?;
