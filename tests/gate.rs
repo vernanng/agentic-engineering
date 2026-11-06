@@ -623,13 +623,14 @@ fn gate() {
         Some(200),
     );
     // factory CLI parity
-    let cfg_path = std::env::temp_dir().join("factory.json");
+    let cfg_path =
+        std::env::temp_dir().join(format!("factory-{}.json", std::process::id()));
     std::fs::write(
         &cfg_path,
         json!({"name":"check-factory-cli","template":"report"}).to_string(),
     )
     .unwrap();
-    let cli_db = std::env::temp_dir().join("gate-cli.db");
+    let cli_db = std::env::temp_dir().join(format!("gate-cli-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&cli_db);
     let out = Command::new(env!("CARGO_BIN_EXE_loop-app"))
         .args(["--init-factory", cfg_path.to_str().unwrap()])
