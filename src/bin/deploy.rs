@@ -161,6 +161,11 @@ fn deploy() -> Result<(), String> {
     }
     std::fs::write(root.join(".env.cd"), cd).map_err(|e| format!("write .env.cd: {e}"))?;
     merge_env(&root)?;
+    // Secrets were only needed for .env.cd: scrub them so spawned children
+    // (release gate, build) run hermetic, as when secrets arrived by pipe.
+    for k in MANAGED_KEYS {
+        std::env::remove_var(k);
+    }
 
     println!("==> gate: cargo test");
     run("cargo", &["test", "--release", "--locked", "--test", "gate"])?;
