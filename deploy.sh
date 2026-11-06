@@ -22,11 +22,19 @@ cp target/release/client "releases/client-$SHA" 2>/dev/null || true
 PREV=$(cat .loop-app.current 2>/dev/null || true)
 
 restart() { # $1 = binary path
-  if [ -f .loop-app.pid ]; then kill "$(cat .loop-app.pid)" 2>/dev/null || true; sleep 1; fi
-  set -a; [ -f .env ] && . ./.env; set +a
-  PORT="${PORT:-8000}" LOOP_DB="${LOOP_DB:-$PWD/loop.db}" nohup "$1" >> loop-app.log 2>&1 &
-  echo $! > .loop-app.pid
+  ln -sf "$1" releases/loop-app-latest
   echo "$1" > .loop-app.current
+  if launchctl print "gui/$(id -u)/com.loop-app" >/dev/null 2>&1; then
+    # Service lives outside this process tree (survives CI job cleanup).
+    launchctl kickstart -k "gui/$(id -u)/com.loop-app"
+    for i in $(seq 1 20); do curl -fsS http://localhost:8000/api/task-types >/dev/null 2>&1 && break; sleep 0.5; done
+    pgrep -f "releases/loop-app-latest" | head -n 1 > .loop-app.pid || true
+  else
+    if [ -f .loop-app.pid ]; then kill "$(cat .loop-app.pid)" 2>/dev/null || true; sleep 1; fi
+    set -a; [ -f .env ] && . ./.env; set +a
+    PORT="${PORT:-8000}" LOOP_DB="${LOOP_DB:-$PWD/loop.db}" nohup "$1" >> loop-app.log 2>&1 &
+    echo $! > .loop-app.pid
+  fi
 }
 
 echo "==> deploy loop-app:$SHA"
