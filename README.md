@@ -16,12 +16,12 @@ Promotion is earned, not automatic: 3 consecutive successful runs in `in` (5 in 
 
 ```bash
 cargo test          # gate: boots the real binary, mocked models, no spend
-./deploy.sh         # from main only: gate -> release build -> DB backup -> swap binary -> health check -> rollback on failure
+git push origin main  # the only deploy: CD gate -> release build -> DB backup -> swap binary -> health check -> rollback on failure
 ```
 
-The app is live at `http://localhost:8000` after deploy. Logs: `tail -f loop-app.log`. Stop: `kill "$(cat .loop-app.pid)"`. Bare run without the gate: `cargo run --release`.
+There is no local deploy. Push to `main` deploys on this machine via GitHub Actions ([.github/workflows/cd.yml](.github/workflows/cd.yml), self-hosted macOS runner). The app is live at `http://localhost:8000` after deploy. Logs: `tail -f loop-app.log`. Stop (launchd): `launchctl bootout "gui/$(id -u)/com.loop-app"`. Bare run without the gate: `cargo run --release`.
 
-Push to `main` runs the same deploy on this machine via GitHub Actions ([.github/workflows/cd.yml](.github/workflows/cd.yml), self-hosted macOS runner). Binaries are kept per git SHA in `releases/`; the previous binary is the rollback.
+Binaries are kept per git SHA in `releases/`; the previous binary is the rollback.
 
 Exercise the loop: submit a `summarize` run (approve each step), switch `classify` to near and watch it pause on low confidence and the risky step, then put any task in out and add `FAIL` to the input to see the alert and demotion.
 
@@ -31,7 +31,7 @@ Detached CLI (same API, no browser): `cargo run --release --bin client -- [--jso
 
 - UI: Agent panel → Thinking level → **Save**. Proposals from agents apply only after you Approve them.
 - API: `curl -X PUT http://localhost:8000/api/config -H 'Content-Type: application/json' -d '{"thinking_level":"high","max_tokens":800}'`. Keys: `model`, `escalation_model`, `cheap_model`, `jev_model`, `max_tokens` (1–8000), `conf_threshold` (0–1), `system_prompt`, `thinking_level`, `enabled_slices`, `context_limit`, `news_sources`.
-- Boot env (`.env`, sourced by [deploy.sh](deploy.sh)): `OPENROUTER_API_KEY` (unset = local stub, no spend), `OPENROUTER_MODEL` (`openai/gpt-4o-mini`), `OPENROUTER_ESCALATION_MODEL` (`openai/gpt-4o`), `DEEPSEEK_FLASH_MODEL` (cheap tier), `JEV_MODEL`, `LOOP_TOKEN` (when set, `/api` needs `X-Loop-Token`). Never commit `.env`.
+- Boot env (`.env`, sourced by [scripts/run-app.sh](scripts/run-app.sh) under launchd and by the CD fallback path): `OPENROUTER_API_KEY` (unset = local stub, no spend), `OPENROUTER_MODEL` (`openai/gpt-4o-mini`), `OPENROUTER_ESCALATION_MODEL` (`openai/gpt-4o`), `DEEPSEEK_FLASH_MODEL` (cheap tier), `JEV_MODEL`, `LOOP_TOKEN` (when set, `/api` needs `X-Loop-Token`). Never commit `.env`.
 
 > With a key set, run inputs are sent to OpenRouter/third-party models — never send confidential input until a data policy is chosen.
 
@@ -39,7 +39,7 @@ Detached CLI (same API, no browser): `cargo run --release --bin client -- [--jso
 
 1. Branch. Edit `templates()` or `run_step()` in [src/main.rs](src/main.rs) (steps are `name, confidence, risky`; keep the `(output, confidence, usage)` return; error on failure). UI in [static/index.html](static/index.html); new endpoints also join the `TOOLS` manifest so agents keep parity.
 2. Extend [tests/gate.rs](tests/gate.rs). `cargo test` must pass.
-3. Merge to `main`, then `./deploy.sh` (or push and let Actions do it).
+3. Merge to `main` and push — Actions deploys it. There is no local deploy.
 
 ## API
 
@@ -61,4 +61,4 @@ All endpoints are JSON under `/api`. When `LOOP_TOKEN` is set, send `X-Loop-Toke
 
 ## Data
 
-One SQLite file, `loop.db` — the same file the Python version used; history carries over (verified by the gate against a copy). Never edit it by hand. [deploy.sh](deploy.sh) backs it up to `backups/` before every deploy.
+One SQLite file, `loop.db` — the same file the Python version used; history carries over (verified by the gate against a copy). Never edit it by hand. [cd.yml](.github/workflows/cd.yml) backs it up to `backups/` before every deploy.

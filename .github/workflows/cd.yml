@@ -1,8 +1,9 @@
 name: CD
 
-# Local-first CD without Docker: the self-hosted runner on this machine
-# pulls main into the real checkout and runs its deploy.sh (gate, build,
-# swap, health-check, rollback). The Actions checkout is not deployed.
+# CD without Docker, and no local deploy: push to main is the only deploy.
+# The self-hosted runner on this machine pulls main into the real checkout
+# and deploys it there (gate, build, swap, health-check, rollback).
+# The Actions checkout is not deployed.
 on:
   push:
     branches: [main]
@@ -16,11 +17,67 @@ jobs:
   deploy:
     runs-on: [self-hosted, macOS]
     steps:
-      - name: Pull main + deploy
+      - name: Pull main
         run: |
           cd /Users/vernantjoa/projects/agentic-engineering
           git pull --ff-only origin main
-          ./deploy.sh
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          cd /Users/vernantjoa/projects/agentic-engineering
+          SHA=$(git rev-parse --short HEAD)
+
+          echo "==> gate: cargo test"
+          cargo test --release 2>&1 | tail -n 3
+
+          echo "==> backup db"
+          mkdir -p backups releases
+          [ -f loop.db ] && cp loop.db "backups/loop-$(date +%Y%m%d-%H%M%S).db" || true
+
+          echo "==> build loop-app:$SHA"
+          cargo build --release 2>&1 | tail -n 1
+          cp target/release/loop-app "releases/loop-app-$SHA"
+          cp target/release/client "releases/client-$SHA" 2>/dev/null || true
+
+          PREV=$(cat .loop-app.current 2>/dev/null || true)
+
+          restart() { # $1 = binary path
+            ln -sf "$1" releases/loop-app-latest
+            echo "$1" > .loop-app.current
+            if launchctl print "gui/$(id -u)/com.loop-app" >/dev/null 2>&1; then
+              # Service lives outside this process tree (survives CI job cleanup).
+              launchctl kickstart -k "gui/$(id -u)/com.loop-app"
+              for i in $(seq 1 20); do curl -fsS http://localhost:8000/api/task-types >/dev/null 2>&1 && break; sleep 0.5; done
+              pgrep -f "releases/loop-app-latest" | head -n 1 > .loop-app.pid || true
+            else
+              if [ -f .loop-app.pid ]; then kill "$(cat .loop-app.pid)" 2>/dev/null || true; sleep 1; fi
+              set -a; [ -f .env ] && . ./.env; set +a
+              PORT="${PORT:-8000}" LOOP_DB="${LOOP_DB:-$PWD/loop.db}" nohup "$1" >> loop-app.log 2>&1 &
+              echo $! > .loop-app.pid
+            fi
+          }
+
+          echo "==> deploy loop-app:$SHA"
+          restart "$PWD/releases/loop-app-$SHA"
+
+          echo "==> health check http://localhost:8000"
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:8000/api/task-types >/dev/null 2>&1; then
+              echo "deploy: OK loop-app:$SHA at http://localhost:8000 (pid $(cat .loop-app.pid))"
+              exit 0
+            fi
+            sleep 0.5
+          done
+
+          echo "deploy: health check failed, log tail:" >&2
+          tail -n 20 loop-app.log >&2 || true
+          if [ -n "$PREV" ] && [ -f "$PREV" ]; then
+            echo "deploy: rolling back to $PREV" >&2
+            restart "$PREV"
+          else
+            [ -f .loop-app.pid ] && kill "$(cat .loop-app.pid)" 2>/dev/null || true
+          fi
+          exit 1
       - name: Show service log on failure
         if: failure()
         run: tail -n 50 /Users/vernantjoa/projects/agentic-engineering/loop-app.log || true
