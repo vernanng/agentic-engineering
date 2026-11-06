@@ -1,0 +1,16 @@
+[Unit]
+Description=loop-app (agentic-engineering)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/project/agentic-engineering
+# run-app.sh loads .env (HOST/PORT/LOOP_DB) and execs releases/loop-app-latest.
+ExecStart=/root/project/agentic-engineering/scripts/run-app.sh
+Restart=on-failure
+RestartSec=2
+StandardOutput=append:/root/project/agentic-engineering/loop-app.log
+StandardError=append:/root/project/agentic-engineering/loop-app.log
+
+[Install]
+WantedBy=multi-user.target
