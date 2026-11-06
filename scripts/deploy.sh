@@ -3,6 +3,7 @@
 # first manual install). Gate -> backup -> build -> swap -> health-check,
 # roll back to the previous binary on failure (DB is not restored).
 set -euo pipefail
+export PATH="$HOME/.cargo/bin:$PATH" # SSH non-login shells lack ~/.cargo/bin
 cd "$(dirname "$0")/.."
 bash scripts/merge-env.sh # GitHub secrets (.env.cd) -> .env, if synced
 SHA=$(git rev-parse --short HEAD)
