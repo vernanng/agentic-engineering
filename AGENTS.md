@@ -126,6 +126,7 @@ All routes are `/api/*` and speak JSON. The full route list is not copied here: 
 cargo test
 ```
 
+- Same gate runs on GitHub-hosted CI ([ci.yml](.github/workflows/ci.yml), cached debug build) for branches and PRs; CD re-runs it in release on the self-hosted runner.
 - Boots the real binary on port `18099` with a temp DB.
 - Mocks OpenRouter + Jev locally — no network, no spend.
 - Covers: all modes, promotion, tools/config/pages/proposals/slices/cron/factory, triggers, the sweep, the CLI, and reading a copy of the real `loop.db`.

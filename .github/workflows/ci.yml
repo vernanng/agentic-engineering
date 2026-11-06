@@ -1,0 +1,23 @@
+name: CI
+
+# Fast feedback off this machine: GitHub-hosted, cached, debug gate.
+# Deploy stays in cd.yml (self-hosted, on push to main only).
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Gate
+        run: cargo test --locked --test gate
