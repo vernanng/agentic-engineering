@@ -1,11 +1,12 @@
 name: CD
 
 # CD without Docker, and no local deploy: push to main is the only deploy.
-# Runs on the VPS self-hosted runner (label loop-vps). The only step invokes
-# the deploy binary, which pulls main into the real checkout
-# (/root/project/agentic-engineering) and performs gate, backup, build, swap,
-# health-check, and rollback via systemd. Push to main needs write access, so
-# only trusted code reaches the runner. VM_HOST/VM_USER/VM_SSH_KEY are retired.
+# Runs on the VPS self-hosted runner (label loop-vps): checks out the pushed
+# commit, then runs the deploy binary with LOOP_CHECKOUT pointing at the live
+# checkout (/root/project/agentic-engineering). The binary pulls main there
+# and performs gate, backup, build, swap, health-check, and rollback via
+# systemd. Push to main needs write access, so only trusted code reaches the
+# runner. VM_HOST/VM_USER/VM_SSH_KEY are retired.
 # LOOP_TOKEN / OPENROUTER_API_BASE / TURSO_* secrets are the source of truth:
 # deploy reads them from its environment and merges the non-empty ones into
 # .env. Rust only: workflow steps invoke the Rust toolchain, nothing else.
@@ -22,12 +23,11 @@ concurrency:
 jobs:
   deploy:
     runs-on: [self-hosted, loop-vps]
-    defaults:
-      run:
-        working-directory: /root/project/agentic-engineering
     steps:
+      - uses: actions/checkout@v4
       - name: Deploy
         env:
+          LOOP_CHECKOUT: /root/project/agentic-engineering
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
           OPENROUTER_API_BASE: ${{ secrets.OPENROUTER_API_BASE }}
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}

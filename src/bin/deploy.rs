@@ -12,8 +12,13 @@ const MANAGED_KEYS: [&str; 4] = [
 ];
 
 fn run(prog: &str, args: &[&str]) -> Result<(), String> {
+    run_in(&std::env::current_dir().map_err(|e| format!("cwd: {e}"))?, prog, args)
+}
+
+fn run_in(dir: &Path, prog: &str, args: &[&str]) -> Result<(), String> {
     let st = Command::new(prog)
         .args(args)
+        .current_dir(dir)
         .status()
         .map_err(|e| format!("spawn {prog}: {e}"))?;
     st.success()
@@ -132,11 +137,15 @@ fn deploy() -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home/runner".into());
     let path = std::env::var("PATH").unwrap_or_default();
     std::env::set_var("PATH", format!("{home}/.cargo/bin:{path}"));
-    let root = std::env::current_dir().map_err(|e| format!("cwd: {e}"))?;
+    // Source checkout is the CWD (cargo builds here); the live checkout that
+    // serves the app is LOOP_CHECKOUT (db, releases, .env all live there).
+    let root = std::env::var("LOOP_CHECKOUT")
+        .map(PathBuf::from)
+        .unwrap_or(std::env::current_dir().map_err(|e| format!("cwd: {e}"))?);
     println!("==> sync main");
-    run("git", &["fetch", "origin"])?;
-    run("git", &["checkout", "main"])?;
-    run("git", &["pull", "--ff-only", "origin", "main"])?;
+    run_in(&root, "git", &["fetch", "origin"])?;
+    run_in(&root, "git", &["checkout", "main"])?;
+    run_in(&root, "git", &["pull", "--ff-only", "origin", "main"])?;
     let sha_out = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()

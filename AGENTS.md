@@ -64,7 +64,7 @@ Secrets live in `.env` only (gitignored — see [.env.example](.env.example)). U
 
 ## Deployment
 
-There is no local deploy. A non-docs push to `main` triggers [.github/workflows/cd.yml](.github/workflows/cd.yml) on the VPS self-hosted runner (label `loop-vps`), which runs the deploy binary (`cargo run --release --bin deploy`, [src/bin/deploy.rs](src/bin/deploy.rs)) in this checkout (`/root/project/agentic-engineering`). The binary pulls `main` itself, then performs, in order:
+There is no local deploy. A non-docs push to `main` triggers [.github/workflows/cd.yml](.github/workflows/cd.yml) on the VPS self-hosted runner (label `loop-vps`), which checks out the pushed commit and runs the deploy binary ([src/bin/deploy.rs](src/bin/deploy.rs)) with `LOOP_CHECKOUT` pointing at this checkout (`/root/project/agentic-engineering`). The binary pulls `main` there, then performs, in order:
 
 1. Gate (`cargo test --release --locked --test gate`)
 2. DB backup to `backups/`
