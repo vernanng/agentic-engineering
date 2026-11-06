@@ -1,7 +1,8 @@
 name: CD
 
-# Local-first CD without Docker: a self-hosted runner on this machine
-# gates, builds the Rust binary, swaps it in, health-checks, rolls back.
+# Local-first CD without Docker: the self-hosted runner on this machine
+# pulls main into the real checkout and runs its deploy.sh (gate, build,
+# swap, health-check, rollback). The Actions checkout is not deployed.
 on:
   push:
     branches: [main]
@@ -15,9 +16,11 @@ jobs:
   deploy:
     runs-on: [self-hosted, macOS]
     steps:
-      - uses: actions/checkout@v4
-      - name: Gate + build + deploy
-        run: ./deploy.sh
+      - name: Pull main + deploy
+        run: |
+          cd /Users/vernantjoa/projects/agentic-engineering
+          git pull --ff-only origin main
+          ./deploy.sh
       - name: Show service log on failure
         if: failure()
-        run: tail -n 50 loop-app.log || true
+        run: tail -n 50 /Users/vernantjoa/projects/agentic-engineering/loop-app.log || true
