@@ -50,6 +50,7 @@ Secrets live in `.env` only (gitignored — see [.env.example](.env.example)). [
 | `LOOP_DB` | `loop.db` |
 | `LOOP_TOKEN` | unset = no auth (localhost dev); set = every `/api` call needs `X-Loop-Token: <secret>` (or `Authorization: Bearer <secret>`) |
 | `LOOP_URL` | `http://localhost:8000` — CLI (`client`) only |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | unset = local `LOOP_DB` file; both set = Turso remote DB (spike backend in `src/main.rs`) |
 | `OPENROUTER_API_KEY` | unset = local stub, no spend; set = calls OpenRouter |
 | `OPENROUTER_MODEL` | `openai/gpt-4o-mini` |
 | `OPENROUTER_ESCALATION_MODEL` | `openai/gpt-4o` |

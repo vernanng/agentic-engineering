@@ -292,7 +292,116 @@ fn row_json(row: &rusqlite::Row) -> rusqlite::Result<Value> {
     }
     Ok(Value::Object(m))
 }
+// ---------- optional Turso remote backend (spike) ----------
+// Enabled only when TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are both set.
+// shortcut: synchronous HTTP per query via the Hrana pipeline API, upgrade to the libsql embedded replica when Turso mode becomes the default.
+static TURSO: OnceLock<Option<(String, String)>> = OnceLock::new();
+fn turso_cfg() -> Option<&'static (String, String)> {
+    TURSO
+        .get_or_init(|| {
+            let url = std::env::var("TURSO_DATABASE_URL").unwrap_or_default();
+            let token = std::env::var("TURSO_AUTH_TOKEN").unwrap_or_default();
+            if url.is_empty() || token.is_empty() {
+                None
+            } else {
+                Some((
+                    url.replacen("libsql://", "https://", 1)
+                        .trim_end_matches('/')
+                        .to_string(),
+                    token,
+                ))
+            }
+        })
+        .as_ref()
+}
+fn turso_arg(v: &dyn rusqlite::ToSql) -> Value {
+    use rusqlite::types::{ToSqlOutput, Value, ValueRef};
+    // shortcut: blobs become null, matching row_json; no SQL path stores blobs today
+    match v.to_sql().unwrap() {
+        ToSqlOutput::Borrowed(ValueRef::Null) | ToSqlOutput::Owned(Value::Null) => {
+            json!({"type": "null"})
+        }
+        ToSqlOutput::Borrowed(ValueRef::Integer(n)) | ToSqlOutput::Owned(Value::Integer(n)) => {
+            json!({"type": "integer", "value": n.to_string()})
+        }
+        ToSqlOutput::Borrowed(ValueRef::Real(f)) | ToSqlOutput::Owned(Value::Real(f)) => {
+            json!({"type": "float", "value": f})
+        }
+        ToSqlOutput::Borrowed(ValueRef::Text(t)) => {
+            json!({"type": "text", "value": String::from_utf8_lossy(t).into_owned()})
+        }
+        ToSqlOutput::Owned(Value::Text(t)) => json!({"type": "text", "value": t}),
+        ToSqlOutput::Borrowed(ValueRef::Blob(_)) | ToSqlOutput::Owned(Value::Blob(_)) => {
+            json!({"type": "null"})
+        }
+        _ => json!({"type": "null"}),
+    }
+}
+fn turso_last_id(v: &Value) -> i64 {
+    // Hrana encodes this as a JSON string on some server versions, a number on others.
+    v.as_i64()
+        .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
+        .unwrap_or(0)
+}
+fn turso_cell(v: &Value) -> Value {
+    match v["type"].as_str().unwrap_or("null") {
+        "integer" => json!(v["value"].as_str().unwrap_or("0").parse::<i64>().unwrap_or(0)),
+        "float" => json!(v["value"].as_f64().unwrap_or(0.0)),
+        "text" => json!(v["value"].as_str().unwrap_or("")),
+        _ => Value::Null,
+    }
+}
+fn turso_exec(sql: &str, args: &[&dyn rusqlite::ToSql]) -> AppResult<(Vec<Value>, i64)> {
+    let (base, token) = turso_cfg().ok_or("turso not configured")?;
+    let stmt_args: Vec<Value> = args.iter().map(|a| turso_arg(*a)).collect();
+    let body = ureq::post(&format!("{base}/v2/pipeline"))
+        .set("Authorization", &format!("Bearer {token}"))
+        .send_json(json!({"requests": [
+            {"type": "execute", "stmt": {"sql": sql, "args": stmt_args}},
+            {"type": "close"}
+        ]}))
+        .map_err(|e| format!("turso call failed: {e}"))?
+        .into_json::<Value>()
+        .map_err(|e| format!("turso call failed: {e}"))?;
+    let first = &body["results"][0];
+    if first["type"].as_str() == Some("error") {
+        return Err(format!(
+            "turso error: {}",
+            first["error"]["message"].as_str().unwrap_or("unknown")
+        ));
+    }
+    let result = &first["response"]["result"];
+    let cols: Vec<String> = result["cols"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .map(|c| c["name"].as_str().unwrap_or("").to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    let rows = result["rows"]
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .map(|r| {
+                    let mut m = serde_json::Map::new();
+                    for (i, name) in cols.iter().enumerate() {
+                        m.insert(name.clone(), turso_cell(&r[i]));
+                    }
+                    Value::Object(m)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let last_id = turso_last_id(&result["last_insert_rowid"])
+        .max(turso_last_id(&result["last_insert_row_id"]));
+    Ok((rows, last_id))
+}
+
 fn q(sql: &str, args: &[&dyn rusqlite::ToSql]) -> Vec<Value> {
+    if turso_cfg().is_some() {
+        return turso_exec(sql, args).expect("turso query failed").0;
+    }
     let conn = db().0.lock().unwrap();
     let mut st = conn.prepare(sql).unwrap();
     let rows = st.query_map(args, row_json).unwrap();
@@ -302,9 +411,20 @@ fn q1(sql: &str, args: &[&dyn rusqlite::ToSql]) -> Option<Value> {
     q(sql, args).into_iter().next()
 }
 fn x(sql: &str, args: &[&dyn rusqlite::ToSql]) -> i64 {
+    if turso_cfg().is_some() {
+        return turso_exec(sql, args).expect("turso query failed").1;
+    }
     let conn = db().0.lock().unwrap();
     conn.execute(sql, args).unwrap();
     conn.last_insert_rowid()
+}
+fn try_insert(sql: &str, args: &[&dyn rusqlite::ToSql]) -> AppResult<i64> {
+    if turso_cfg().is_some() {
+        return turso_exec(sql, args).map(|(_, id)| id);
+    }
+    let conn = db().0.lock().unwrap();
+    conn.execute(sql, args).map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
 }
 fn audit(run_id: Option<i64>, event: &str, detail: &str) {
     match run_id {
@@ -323,7 +443,54 @@ fn audit(run_id: Option<i64>, event: &str, detail: &str) {
     }
 }
 
+fn init_turso() {
+    // Same DDL and seeds as the local branch of init_db, one statement per call.
+    for ddl in [
+        "CREATE TABLE IF NOT EXISTS task_types(id INTEGER PRIMARY KEY, name TEXT UNIQUE, template TEXT, mode TEXT DEFAULT 'in', consecutive_success INTEGER DEFAULT 0, failures INTEGER DEFAULT 0)",
+        "CREATE TABLE IF NOT EXISTS runs(id INTEGER PRIMARY KEY, task_type_id INTEGER, input TEXT, mode TEXT, status TEXT, created_at REAL, finished_at REAL)",
+        "CREATE TABLE IF NOT EXISTS steps(id INTEGER PRIMARY KEY, run_id INTEGER, idx INTEGER, name TEXT, status TEXT, output TEXT, confidence REAL, risky INTEGER, pause_reason TEXT, tokens INTEGER DEFAULT 0, cost REAL DEFAULT 0)",
+        "CREATE TABLE IF NOT EXISTS decisions(id INTEGER PRIMARY KEY, run_id INTEGER, step_id INTEGER, action TEXT, edited_output TEXT, created_at REAL)",
+        "CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, run_id INTEGER, event TEXT, detail TEXT, created_at REAL)",
+        "CREATE TABLE IF NOT EXISTS crons(id INTEGER PRIMARY KEY, name TEXT, schedule_s INTEGER, prompt TEXT, task_type_id INTEGER, enabled INTEGER DEFAULT 1, last_run_at REAL, next_run_at REAL)",
+        "CREATE TABLE IF NOT EXISTS pages(id INTEGER PRIMARY KEY, title TEXT, body TEXT, created_by TEXT, created_at REAL, updated_at REAL)",
+        "CREATE TABLE IF NOT EXISTS settings(id INTEGER PRIMARY KEY, config TEXT)",
+        "CREATE TABLE IF NOT EXISTS proposals(id INTEGER PRIMARY KEY, task_type_id INTEGER, config TEXT, status TEXT, created_at REAL)",
+        "CREATE TABLE IF NOT EXISTS items(id INTEGER PRIMARY KEY, title TEXT, url TEXT, body TEXT, source TEXT, hash TEXT UNIQUE, hype REAL, facts REAL, signal REAL, importance REAL, status TEXT, created_at REAL)",
+        "CREATE TABLE IF NOT EXISTS weights(kind TEXT, key TEXT, weight REAL, PRIMARY KEY(kind, key))",
+        "CREATE TABLE IF NOT EXISTS jev_calls(id INTEGER PRIMARY KEY, run_id INTEGER, command TEXT, model TEXT, input_tokens INTEGER, cost REAL, mock INTEGER, created_at REAL)",
+        "ALTER TABLE steps ADD COLUMN tokens INTEGER DEFAULT 0",
+        "ALTER TABLE steps ADD COLUMN cost REAL DEFAULT 0",
+    ] {
+        let _ = turso_exec(ddl, &[]);
+    }
+    for topic in ["agent", "model", "release"] {
+        turso_exec(
+            "INSERT OR IGNORE INTO weights(kind,key,weight) VALUES('topic',?,1.0)",
+            &[&topic],
+        )
+        .unwrap();
+    }
+    turso_exec(
+        "INSERT OR IGNORE INTO settings(id,config) VALUES(1,?)",
+        &[&serde_json::to_string(&default_config()).unwrap()],
+    )
+    .unwrap();
+    for name in template_names() {
+        turso_exec(
+            "INSERT OR IGNORE INTO task_types(name,template) VALUES(?,?)",
+            &[&name, &name],
+        )
+        .unwrap();
+    }
+    x("UPDATE runs SET status='killed',finished_at=strftime('%s','now') WHERE status IN ('running','awaiting_decision','paused')", &[]);
+    x("UPDATE steps SET status='rejected' WHERE status IN ('pending','awaiting_decision')", &[]);
+}
+
 fn init_db(path: &str) {
+    if turso_cfg().is_some() {
+        init_turso();
+        return;
+    }
     let conn = rusqlite::Connection::open(path).unwrap();
     DB.set(Db(Mutex::new(conn))).ok();
     let c = db().0.lock().unwrap();
@@ -809,15 +976,11 @@ fn create_factory(data: &Value) -> AppResult<Value> {
             "name required, template must be summarize|classify|report|incident|news".into(),
         );
     }
-    let tid = {
-        let conn = db().0.lock().unwrap();
-        conn.execute(
-            "INSERT INTO task_types(name,template,mode) VALUES(?,?,?)",
-            rusqlite::params![name.trim(), template, "in"],
-        )
-        .map_err(|_| "name already exists".to_string())?;
-        conn.last_insert_rowid()
-    };
+    let tid = try_insert(
+        "INSERT INTO task_types(name,template,mode) VALUES(?,?,?)",
+        &[&name.trim(), &template, &"in"],
+    )
+    .map_err(|_| "name already exists".to_string())?;
     let tt = q1("SELECT * FROM task_types WHERE id=?", &[&tid]).unwrap();
     let mut crons = vec![];
     if let Some(list) = data["crons"].as_array() {
@@ -1081,21 +1244,17 @@ fn item_hash(title: &str, body: &str) -> String {
 }
 fn insert_item(title: &str, url: &str, body: &str, source: &str) -> (i64, bool) {
     let h = item_hash(title, body);
-    let conn = db().0.lock().unwrap();
-    match conn.execute(
+    match try_insert(
         "INSERT INTO items(title,url,body,source,hash,status,created_at) VALUES(?,?,?,?,?,'new',?)",
-        rusqlite::params![title, url, body, source, h, now()],
+        &[&title, &url, &body, &source, &h, &now()],
     ) {
-        Ok(_) => (conn.last_insert_rowid(), true),
-        Err(_) => {
-            drop(conn);
-            (
-                q1("SELECT id FROM items WHERE hash=?", &[&h])
-                    .map(|r| r["id"].as_i64().unwrap())
-                    .unwrap_or(0),
-                false,
-            )
-        }
+        Ok(id) => (id, true),
+        Err(_) => (
+            q1("SELECT id FROM items WHERE hash=?", &[&h])
+                .map(|r| r["id"].as_i64().unwrap())
+                .unwrap_or(0),
+            false,
+        ),
     }
 }
 fn fetch_source(url: &str) -> AppResult<Vec<(String, String, String)>> {
@@ -1829,20 +1988,15 @@ fn handle(mut req: tiny_http::Request) {
                     json!({"error":"name required, template must be summarize|classify|report|incident|news, mode must be in|near|out"}),
                 );
             }
-            let conn = db().0.lock().unwrap();
-            match conn.execute(
+            match try_insert(
                 "INSERT INTO task_types(name,template,mode) VALUES(?,?,?)",
-                rusqlite::params![name.trim(), template, mode],
+                &[&name.trim(), &template, &mode],
             ) {
-                Ok(_) => {
-                    let id = conn.last_insert_rowid();
-                    drop(conn);
-                    respond(
-                        req,
-                        201,
-                        tt_view(&q1("SELECT * FROM task_types WHERE id=?", &[&id]).unwrap()),
-                    )
-                }
+                Ok(id) => respond(
+                    req,
+                    201,
+                    tt_view(&q1("SELECT * FROM task_types WHERE id=?", &[&id]).unwrap()),
+                ),
                 Err(_) => respond(req, 400, json!({"error":"name already exists"})),
             }
         }
@@ -2350,6 +2504,30 @@ fn handle(mut req: tiny_http::Request) {
             }
         },
         _ => respond(req, 404, json!({"error":"not found"})),
+    }
+}
+
+#[cfg(test)]
+mod turso_tests {
+    use super::*;
+
+    #[test]
+    fn turso_value_conversion_round_trip() {
+        let n = 42i64;
+        assert_eq!(turso_arg(&n), json!({"type": "integer", "value": "42"}));
+        let f = 1.5f64;
+        assert_eq!(turso_arg(&f), json!({"type": "float", "value": 1.5}));
+        let s = "hello";
+        assert_eq!(turso_arg(&s), json!({"type": "text", "value": "hello"}));
+        let null = rusqlite::types::Value::Null;
+        assert_eq!(turso_arg(&null), json!({"type": "null"}));
+        assert_eq!(turso_cell(&json!({"type": "integer", "value": "7"})), json!(7));
+        assert_eq!(turso_cell(&json!({"type": "float", "value": 2.5})), json!(2.5));
+        assert_eq!(turso_cell(&json!({"type": "text", "value": "x"})), json!("x"));
+        assert_eq!(turso_cell(&json!({"type": "null"})), Value::Null);
+        assert_eq!(turso_last_id(&json!("123")), 123);
+        assert_eq!(turso_last_id(&json!(45)), 45);
+        assert_eq!(turso_last_id(&Value::Null), 0);
     }
 }
 
