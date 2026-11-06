@@ -173,6 +173,129 @@ fn gate() {
         let cfg = call("GET", "/api/config", None, None);
         assert_eq!(cfg["cheap_model"], json!("openai/gpt-4o-mini"), "{cfg}");
     }
+    // Exec backend: fake `muse` executable (rustc-built fixture, no shell in
+    // repo). A run completes with the fixture's JSON as the step output.
+    // Skip when rustc is missing (some runners lack a toolchain); the
+    // /bin/false block below still covers the exec error path.
+    let has_rustc = Command::new("rustc")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    let exec_dir = std::env::temp_dir().join(format!("gate-exec-{}", std::process::id()));
+    std::fs::create_dir_all(&exec_dir).unwrap();
+    std::fs::write(
+        exec_dir.join("fake-muse.rs"),
+        r#"fn main(){println!("{{\"output\":\"exec ok\",\"confidence\":0.9}}");}"#,
+    )
+    .unwrap();
+    let fake = if has_rustc {
+        let fake = exec_dir.join("fake-muse");
+        assert!(Command::new("rustc")
+            .arg("-o")
+            .arg(&fake)
+            .arg(exec_dir.join("fake-muse.rs"))
+            .status()
+            .unwrap()
+            .success());
+        Some(fake)
+    } else {
+        println!("rustc missing, skipping exec fixture");
+        None
+    };
+    let dbe = std::env::temp_dir().join(format!("gate-exec-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbe);
+    if let Some(fake) = fake {
+    {
+        let _srv = boot(
+            dbe.to_str().unwrap(),
+            &[
+                ("LOOP_EXEC_BACKEND", "1"),
+                ("MUSE_BIN", fake.to_str().unwrap()),
+            ],
+        );
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-exec","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let run = call(
+            "POST",
+            "/api/runs",
+            Some(json!({"task_type_id":tt["id"],"input":"ok"})),
+            Some(201),
+        );
+        let r = wait_run(run["id"].as_i64().unwrap(), "completed");
+        let steps = r["steps"].as_array().unwrap();
+        assert!(!steps.is_empty(), "{r}");
+        assert!(
+            steps.iter().all(|s| s["output"] == json!("exec ok")),
+            "{r}"
+        );
+        println!("exec backend ok");
+    }
+    }
+    // Exec backend failure (non-zero exit) fails the run with an alert, like
+    // the FAIL hook does for the default backend.
+    let dbef = std::env::temp_dir().join(format!("gate-execfail-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbef);
+    {
+        let _srv = boot(
+            dbef.to_str().unwrap(),
+            &[("LOOP_EXEC_BACKEND", "1"), ("MUSE_BIN", "/bin/false")],
+        );
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-execfail","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let run = call(
+            "POST",
+            "/api/runs",
+            Some(json!({"task_type_id":tt["id"],"input":"ok"})),
+            Some(201),
+        );
+        let r = wait_run(run["id"].as_i64().unwrap(), "failed");
+        assert!(r["audit"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["event"] == "alert"));
+        println!("exec backend failure ok");
+    }
+    // MSP backend with an unspawnable host fails the run instead of hanging.
+    let dbm = std::env::temp_dir().join(format!("gate-mspfail-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbm);
+    {
+        let _srv = boot(
+            dbm.to_str().unwrap(),
+            &[
+                ("LOOP_MSP_BACKEND", "1"),
+                ("MUSE_BIN", "/nonexistent-muse-xyz"),
+            ],
+        );
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-mspfail","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let run = call(
+            "POST",
+            "/api/runs",
+            Some(json!({"task_type_id":tt["id"],"input":"ok"})),
+            Some(201),
+        );
+        let r = wait_run(run["id"].as_i64().unwrap(), "failed");
+        assert!(r["audit"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["event"] == "alert"));
+        println!("msp spawn failure ok");
+    }
     let db = std::env::temp_dir().join(format!("gate-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&db);
     let srv = boot(db.to_str().unwrap(), &[("OPENROUTER_API_KEY", "test-key")]);
