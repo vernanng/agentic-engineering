@@ -483,6 +483,15 @@ fn gate() {
                 let dbm =
                     std::env::temp_dir().join(format!("gate-loop-msp-{}.db", std::process::id()));
                 let _ = std::fs::remove_file(&dbm);
+                // The previous attempt's server is SIGKILLed on unwind but may
+                // still answer one last poll; wait until the port goes dark so
+                // boot() cannot talk to the dying server's old DB.
+                for _ in 0..100 {
+                    if std::net::TcpStream::connect("localhost:18099").is_err() {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
                 let _srv = boot(dbm.to_str().unwrap(), &[("LOOP_MSP_BACKEND", "1")]);
                 loop_harness("check-loop-msp");
             });
