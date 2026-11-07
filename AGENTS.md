@@ -2,6 +2,7 @@
 
 > Agent operating rules for this repo. Shared product facts live in [README.md](README.md) — do not duplicate them here.
 > Local only (`http://localhost:8000`). No cloud without an explicit ask. No Docker.
+> Stack: Rust/Cargo only. The webserver serves the interactive HTML UI. No TypeScript, no Python, no Docker, no shell scripts.
 
 ## Project layout
 
@@ -61,6 +62,7 @@ Secrets live in `.env` only (gitignored — see [.env.example](.env.example)). U
 | `JEV_MOCK` | unset = off; `1` = labelled dev mock |
 | `JEV_DIR` | unset = `prompt_engineering/jev/` (else next to the binary) |
 | `OPENROUTER_API_BASE` | `https://openrouter.ai` — base-URL override; the gate points it at its mock, a live value redirects real calls |
+| `META_API_KEY` | unset = ambient `muse login` (dev); set = programmatic auth for the exec/MSP backends, takes priority over the login file |
 
 ## Deployment
 

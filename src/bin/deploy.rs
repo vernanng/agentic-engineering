@@ -197,7 +197,7 @@ fn deploy() -> Result<(), String> {
     }
 
     println!("==> gate: cargo test");
-    run("cargo", &["test", "--release", "--locked", "--test", "gate"])?;
+    run("cargo", &["test", "--release", "--locked"])?;
 
     println!("==> backup db");
     std::fs::create_dir_all(root.join("backups")).map_err(|e| format!("mkdir backups: {e}"))?;

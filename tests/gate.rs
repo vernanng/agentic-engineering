@@ -132,6 +132,88 @@ impl Drop for Srv {
     }
 }
 
+fn complete_run(ttid: i64) {
+    // Drive one run to completion, approving every paused step.
+    let run = call(
+        "POST",
+        "/api/runs",
+        Some(json!({"task_type_id": ttid, "input": "ok"})),
+        Some(201),
+    );
+    let rid = run["id"].as_i64().unwrap();
+    let end = Instant::now() + Duration::from_secs(150);
+    loop {
+        if Instant::now() > end {
+            panic!("run {rid} never completed");
+        }
+        let r = call("GET", &format!("/api/runs/{}", rid), None, None);
+        match r["status"].as_str() {
+            Some("completed") => return,
+            Some("awaiting_decision") => {
+                call(
+                    "POST",
+                    &format!("/api/runs/{}/decide", rid),
+                    Some(json!({"action": "approve"})),
+                    Some(200),
+                );
+            }
+            Some("failed") | Some("killed") => panic!("run {rid} ended {}: {r}", r["status"]),
+            _ => std::thread::sleep(Duration::from_millis(500)),
+        }
+    }
+}
+
+fn assert_eligible(tid: i64) {
+    let me = call("GET", "/api/task-types", None, None)
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"].as_i64() == Some(tid))
+        .unwrap()
+        .clone();
+    assert_eq!(me["promotion_eligible"], json!(true), "{me}");
+}
+
+fn promote_to(tid: i64, mode: &str) {
+    let p = call(
+        "POST",
+        &format!("/api/task-types/{}/promote", tid),
+        Some(json!({})),
+        Some(200),
+    );
+    assert_eq!(p["mode"], json!(mode), "{p}");
+}
+
+fn loop_harness(name: &str) {
+    // Full in >> near >> out loop: 3 runs, promote, 5 runs, promote, 1 run.
+    let tt = call(
+        "POST",
+        "/api/task-types",
+        Some(json!({"name": name, "template": "summarize", "mode": "in"})),
+        Some(201),
+    );
+    let tid = tt["id"].as_i64().unwrap();
+    for _ in 0..3 {
+        complete_run(tid);
+    }
+    assert_eligible(tid);
+    promote_to(tid, "near");
+    for _ in 0..5 {
+        complete_run(tid);
+    }
+    assert_eligible(tid);
+    promote_to(tid, "out");
+    complete_run(tid);
+    let me = call("GET", "/api/task-types", None, None)
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"].as_i64() == Some(tid))
+        .unwrap()
+        .clone();
+    assert_eq!(me["mode"], json!("out"), "{me}");
+}
+
 fn boot(db: &str, extra: &[(&str, &str)]) -> Srv {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_loop-app"));
     cmd.env("PORT", "18099")
@@ -208,6 +290,256 @@ fn gate() {
         );
         let cfg = call("GET", "/api/config", None, None);
         assert_eq!(cfg["cheap_model"], json!("openai/gpt-4o-mini"), "{cfg}");
+    }
+    // Exec backend: fake `muse` executable (rustc-built fixture, no shell in
+    // repo). A run completes with the fixture's JSON as the step output.
+    // Skip when rustc is missing (some runners lack a toolchain); the
+    // /bin/false block below still covers the exec error path.
+    let has_rustc = Command::new("rustc")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    let exec_dir = std::env::temp_dir().join(format!("gate-exec-{}", std::process::id()));
+    std::fs::create_dir_all(&exec_dir).unwrap();
+    std::fs::write(
+        exec_dir.join("fake-muse.rs"),
+        r#"fn main(){println!("{{\"output\":\"exec ok\",\"confidence\":0.9}}");}"#,
+    )
+    .unwrap();
+    let fake = if has_rustc {
+        let fake = exec_dir.join("fake-muse");
+        assert!(Command::new("rustc")
+            .arg("-o")
+            .arg(&fake)
+            .arg(exec_dir.join("fake-muse.rs"))
+            .status()
+            .unwrap()
+            .success());
+        Some(fake)
+    } else {
+        println!("rustc missing, skipping exec fixture");
+        None
+    };
+    let dbe = std::env::temp_dir().join(format!("gate-exec-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbe);
+    if let Some(fake) = fake {
+    {
+        let _srv = boot(
+            dbe.to_str().unwrap(),
+            &[
+                ("LOOP_EXEC_BACKEND", "1"),
+                ("MUSE_BIN", fake.to_str().unwrap()),
+            ],
+        );
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-exec","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let run = call(
+            "POST",
+            "/api/runs",
+            Some(json!({"task_type_id":tt["id"],"input":"ok"})),
+            Some(201),
+        );
+        let r = wait_run(run["id"].as_i64().unwrap(), "completed");
+        let steps = r["steps"].as_array().unwrap();
+        assert!(!steps.is_empty(), "{r}");
+        assert!(
+            steps.iter().all(|s| s["output"] == json!("exec ok")),
+            "{r}"
+        );
+        println!("exec backend ok");
+    }
+    // Config-backed backend switch takes effect with no restart:
+    // stub -> exec -> stub on the same server instance.
+    {
+        let dbs = std::env::temp_dir().join(format!("gate-switch-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&dbs);
+        let _srv = boot(
+            dbs.to_str().unwrap(),
+            &[("MUSE_BIN", fake.to_str().unwrap())],
+        );
+        let cfg = call("GET", "/api/config", None, None);
+        assert_eq!(cfg["backend"], json!(""), "{cfg}");
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-switch","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let ttid = tt["id"].clone();
+        let step_output = |input: &str| -> String {
+            let run = call(
+                "POST",
+                "/api/runs",
+                Some(json!({"task_type_id": ttid, "input": input})),
+                Some(201),
+            );
+            let rid = run["id"].as_i64().unwrap();
+            let end = Instant::now() + Duration::from_secs(150);
+            loop {
+                if Instant::now() > end {
+                    panic!("run {rid} never completed");
+                }
+                let r = call("GET", &format!("/api/runs/{rid}"), None, None);
+                match r["status"].as_str() {
+                    Some("completed") => {
+                        return r["steps"][0]["output"].as_str().unwrap_or("").to_string()
+                    }
+                    Some("awaiting_decision") => {
+                        call(
+                            "POST",
+                            &format!("/api/runs/{rid}/decide"),
+                            Some(json!({"action": "approve"})),
+                            Some(200),
+                        );
+                    }
+                    Some("failed") | Some("killed") => {
+                        panic!("run {rid} ended {}: {r}", r["status"])
+                    }
+                    _ => std::thread::sleep(Duration::from_millis(500)),
+                }
+            }
+        };
+        let stub_out = step_output("probe 1");
+        assert!(stub_out.contains("done for"), "{stub_out}");
+        let cfg = call(
+            "PUT",
+            "/api/config",
+            Some(json!({"backend": "exec"})),
+            Some(200),
+        );
+        assert_eq!(cfg["backend"], json!("exec"), "{cfg}");
+        assert_eq!(step_output("probe 2"), "exec ok");
+        let cfg = call("PUT", "/api/config", Some(json!({"backend": ""})), Some(200));
+        assert_eq!(cfg["backend"], json!(""), "{cfg}");
+        let stub_out = step_output("probe 3");
+        assert!(stub_out.contains("done for"), "{stub_out}");
+        println!("backend switch ok");
+    }
+    }
+    // Exec backend failure (non-zero exit) fails the run with an alert, like
+    // the FAIL hook does for the default backend.
+    let dbef = std::env::temp_dir().join(format!("gate-execfail-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbef);
+    {
+        let _srv = boot(
+            dbef.to_str().unwrap(),
+            &[("LOOP_EXEC_BACKEND", "1"), ("MUSE_BIN", "/bin/false")],
+        );
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-execfail","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let run = call(
+            "POST",
+            "/api/runs",
+            Some(json!({"task_type_id":tt["id"],"input":"ok"})),
+            Some(201),
+        );
+        let r = wait_run(run["id"].as_i64().unwrap(), "failed");
+        assert!(r["audit"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["event"] == "alert"));
+        println!("exec backend failure ok");
+    }
+    // MSP backend with an unspawnable host fails the run instead of hanging.
+    let dbm = std::env::temp_dir().join(format!("gate-mspfail-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&dbm);
+    {
+        let _srv = boot(
+            dbm.to_str().unwrap(),
+            &[
+                ("LOOP_MSP_BACKEND", "1"),
+                ("MUSE_BIN", "/nonexistent-muse-xyz"),
+            ],
+        );
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-mspfail","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let run = call(
+            "POST",
+            "/api/runs",
+            Some(json!({"task_type_id":tt["id"],"input":"ok"})),
+            Some(201),
+        );
+        let r = wait_run(run["id"].as_i64().unwrap(), "failed");
+        assert!(r["audit"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["event"] == "alert"));
+        println!("msp spawn failure ok");
+    }
+    // Harness: full in >> near >> out loop on the exec backend (deterministic
+    // fixture, no spend, no login).
+    if has_rustc {
+        let fake_loop = exec_dir.join("fake-muse");
+        let dbl = std::env::temp_dir().join(format!("gate-loop-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&dbl);
+        {
+            let _srv = boot(
+                dbl.to_str().unwrap(),
+                &[
+                    ("LOOP_EXEC_BACKEND", "1"),
+                    ("MUSE_BIN", fake_loop.to_str().unwrap()),
+                ],
+            );
+            loop_harness("check-loop-exec");
+            println!("loop harness (exec) ok");
+        }
+    }
+    // Same loop on MSP with Meta billing (real login, real spend); skipped
+    // without a login so CI stays free.
+    let meta_login = Command::new("muse")
+        .arg("usage")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if meta_login {
+        // Live model turns occasionally exceed the 50s product timeout under
+        // quota pressure; retry the harness once so one slow turn (15s healthy)
+        // does not fail the gate. The product timeout itself is unchanged.
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            let res = std::panic::catch_unwind(|| {
+                let dbm =
+                    std::env::temp_dir().join(format!("gate-loop-msp-{}.db", std::process::id()));
+                let _ = std::fs::remove_file(&dbm);
+                // The previous attempt's server is SIGKILLed on unwind but may
+                // still answer one last poll; wait until the port goes dark so
+                // boot() cannot talk to the dying server's old DB.
+                for _ in 0..100 {
+                    if std::net::TcpStream::connect("localhost:18099").is_err() {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                let _srv = boot(dbm.to_str().unwrap(), &[("LOOP_MSP_BACKEND", "1")]);
+                loop_harness("check-loop-msp");
+            });
+            if res.is_ok() {
+                println!("loop harness (msp) ok");
+                break;
+            }
+            assert!(attempt < 2, "msp harness failed twice in a row");
+            println!("msp harness flaked, retrying once");
+        }
+    } else {
+        println!("no muse login, skipping msp harness");
     }
     let db = std::env::temp_dir().join(format!("gate-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&db);

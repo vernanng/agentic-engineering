@@ -16,6 +16,10 @@
   <dict>
     <key>PORT</key><string>8000</string>
     <key>LOOP_DB</key><string>/Users/vernantjoa/projects/agentic-engineering/loop.db</string>
+    <!-- Absolute muse binary + HOME so the MSP/exec backends find the
+         login in ~/.config/muse/auth.json under launchd's minimal env. -->
+    <key>MUSE_BIN</key><string>/Users/vernantjoa/.local/bin/muse</string>
+    <key>HOME</key><string>/Users/vernantjoa</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

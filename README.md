@@ -1,6 +1,6 @@
 # Agentic Engineering
 
-Real app under active development — **local first**. Rust, one binary, no Docker. Everything runs on this machine at `http://localhost:8000`.
+Real app under active development — **local first**. Rust/Cargo only: one binary, a Rust webserver serving the interactive HTML UI. No TypeScript, no Python, no Docker. Everything runs on this machine at `http://localhost:8000`.
 
 A task earns autonomy: **in-the-loop >> near-the-loop >> out-of-the-loop**.
 

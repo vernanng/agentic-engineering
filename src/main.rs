@@ -11,6 +11,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+mod msp;
+
 const CONF_THRESHOLD: f64 = 0.7;
 const RUN_TIMEOUT_S: f64 = 60.0;
 const MAX_BODY: usize = 1_000_000;
@@ -160,6 +162,7 @@ struct Config {
     jev_model: String,
     news_sources: Vec<String>,
     cheap_model: String,
+    backend: String,
 }
 impl Config {
     fn coding_enabled(&self) -> bool {
@@ -198,6 +201,7 @@ fn default_config() -> Config {
                 d
             }
         },
+        backend: String::new(),
     }
 }
 
@@ -213,6 +217,11 @@ fn validate_config_patch(patch: &Value) -> AppResult<Value> {
             "model" | "escalation_model" | "system_prompt" => {
                 if !v.is_string() {
                     return Err(format!("{k} must be a string"));
+                }
+            }
+            "backend" => {
+                if !["", "stub", "openrouter", "exec", "msp"].contains(&v.as_str().unwrap_or("\0")) {
+                    return Err("backend must be empty (auto), stub, openrouter, exec, or msp".into());
                 }
             }
             "max_tokens" => {
@@ -726,6 +735,119 @@ fn wait_if_paused(run_id: i64) {
 }
 
 /// Real executor via OpenRouter when a key is set, else stub. Returns (output, confidence, usage).
+// shortcut: exec inherits the host login's default tool permissions; add a permission profile once approved ones exist.
+fn drain_pipe<R: std::io::Read + Send + 'static>(pipe: R) -> std::thread::JoinHandle<String> {
+    std::thread::spawn(move || {
+        let mut s = String::new();
+        let mut pipe = pipe;
+        let _ = std::io::Read::read_to_string(&mut pipe, &mut s);
+        s
+    })
+}
+
+fn wait_kill(mut child: std::process::Child, budget: Duration) -> AppResult<std::process::Output> {
+    let out = child.stdout.take().map(drain_pipe);
+    let err = child.stderr.take().map(drain_pipe);
+    let start = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            // Reap best-effort: never leave the child running on our way out.
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("muse exec wait failed: {e}"));
+            }
+            Ok(Some(s)) => break s,
+            // Kill instead of hanging the runner past the step budget.
+            Ok(None) if start.elapsed() >= budget => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("muse exec timed out".into());
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+        }
+    };
+    Ok(std::process::Output {
+        status,
+        stdout: out.map(|h| h.join().unwrap_or_default().into_bytes()).unwrap_or_default(),
+        stderr: err.map(|h| h.join().unwrap_or_default().into_bytes()).unwrap_or_default(),
+    })
+}
+
+fn exec_step(prompt: &str) -> AppResult<(String, f64)> {
+    let child = std::process::Command::new(env_or("MUSE_BIN", "muse"))
+        .arg("exec")
+        .arg(prompt)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("muse exec failed to start: {e}"))?;
+    let out = wait_kill(child, Duration::from_secs_f64(RUN_TIMEOUT_S - 10.0))?;
+    if !out.status.success() {
+        return Err(format!(
+            "muse exec failed: {}",
+            String::from_utf8_lossy(&out.stderr).chars().take(200).collect::<String>()
+        ));
+    }
+    parse_step_output("muse exec", &String::from_utf8_lossy(&out.stdout))
+}
+
+fn parse_step_output(source: &str, content: &str) -> AppResult<(String, f64)> {
+    let clean = content
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim()
+        .to_string();
+    let parsed: Value = serde_json::from_str(&clean)
+        .map_err(|_| format!("{source} returned unparseable output: {content:?}"))?;
+    let out = parsed["output"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or(format!(
+            "{source} returned unparseable output: {content:?}"
+        ))?
+        .to_string();
+    let conf = parsed["confidence"].as_f64().ok_or(format!(
+        "{source} returned unparseable output: {content:?}"
+    ))?;
+    Ok((out, conf.clamp(0.0, 1.0)))
+}
+
+fn msp_workspace() -> String {
+    let w = env_or("LOOP_MSP_WORKSPACE", "");
+    if w.is_empty() {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        w
+    }
+}
+
+fn select_backend(cfg_backend: &str, exec_env: bool, msp_env: bool, has_key: bool) -> &'static str {
+    if !cfg_backend.is_empty() {
+        // Explicit DB setting wins; unknown stored values fail closed to stub.
+        return match cfg_backend {
+            "openrouter" => "openrouter",
+            "exec" => "exec",
+            "msp" => "msp",
+            _ => "stub",
+        };
+    }
+    if msp_env {
+        "msp"
+    } else if exec_env {
+        "exec"
+    } else if has_key {
+        "openrouter"
+    } else {
+        "stub"
+    }
+}
+
 fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, f64, StepUsage)> {
     if text.contains("FAIL") {
         return Err("simulated step failure (FAIL in input)".into());
@@ -735,7 +857,13 @@ fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, 
         return Err("coding slice disabled (self-modification in effect)".into());
     }
     let key = api_key();
-    if key.is_empty() {
+    let backend = select_backend(
+        &cfg.backend,
+        env_or("LOOP_EXEC_BACKEND", "") == "1",
+        env_or("LOOP_MSP_BACKEND", "") == "1",
+        !key.is_empty(),
+    );
+    if backend == "stub" {
         return Ok((
             format!(
                 "{step_name}: done for '{}'",
@@ -750,6 +878,20 @@ fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, 
     let prompt = format!("{}Do this step: {step_name}\nInput:\n{}\n\nReply with ONLY JSON: {{\"output\": \"<result>\", \"confidence\": <0.0-1.0>}}",
         if cfg.system_prompt.is_empty() { String::new() } else { format!("{}\n", cfg.system_prompt) },
         text.chars().take(limit).collect::<String>());
+    if backend == "msp" {
+        let ws = msp_workspace();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| format!("msp runtime failed: {e:?}"))?;
+        let (text, _terminal) = rt.block_on(msp::run_msp_turn(&ws, &prompt))?;
+        let (out, conf) = parse_step_output("msp turn", &text)?;
+        return Ok((out, conf, None));
+    }
+    if backend == "exec" {
+        let (out, conf) = exec_step(&prompt)?;
+        return Ok((out, conf, None));
+    }
     let body = ureq::post(&format!("{}/api/v1/chat/completions", openrouter_base()))
         .set("Authorization", &format!("Bearer {key}")).set("X-Title", "loop-app")
         .send_json(json!({"model": model, "temperature": 0.2, "max_tokens": cfg.max_tokens, "messages": [{"role":"user","content":prompt}]}))
@@ -770,26 +912,8 @@ fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, 
     } else {
         None
     };
-    let clean = content
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim()
-        .to_string();
-    let parsed: Value = serde_json::from_str(&clean)
-        .map_err(|_| format!("OpenRouter returned unparseable output: {content:?}"))?;
-    let out = parsed["output"]
-        .as_str()
-        .filter(|s| !s.is_empty())
-        .ok_or(format!(
-            "OpenRouter returned unparseable output: {content:?}"
-        ))?
-        .to_string();
-    let conf = parsed["confidence"].as_f64().ok_or(format!(
-        "OpenRouter returned unparseable output: {content:?}"
-    ))?;
-    Ok((out, conf.clamp(0.0, 1.0), usage))
+    let (out, conf) = parse_step_output("OpenRouter", &content)?;
+    Ok((out, conf, usage))
 }
 
 fn runner(run_id: i64) {
@@ -2528,6 +2652,78 @@ mod turso_tests {
         assert_eq!(turso_last_id(&json!("123")), 123);
         assert_eq!(turso_last_id(&json!(45)), 45);
         assert_eq!(turso_last_id(&Value::Null), 0);
+    }
+
+    #[test]
+    fn parse_step_output_json() {
+        let (out, conf) =
+            parse_step_output("t", "{\"output\":\"done\",\"confidence\":0.8}").unwrap();
+        assert_eq!((out.as_str(), conf), ("done", 0.8));
+        let (out, conf) = parse_step_output(
+            "t",
+            "```json\n{\"output\":\"fenced\",\"confidence\":0.5}\n```",
+        )
+        .unwrap();
+        assert_eq!((out.as_str(), conf), ("fenced", 0.5));
+        let (_, conf) =
+            parse_step_output("t", "{\"output\":\"x\",\"confidence\":9.9}").unwrap();
+        assert_eq!(conf, 1.0);
+        assert!(parse_step_output("t", "{\"output\":\"x\"}").is_err());
+        assert!(parse_step_output("t", "not json").is_err());
+        assert!(parse_step_output("t", "{\"output\":\"\",\"confidence\":0.5}").is_err());
+    }
+
+    #[test]
+    fn msp_workspace_override() {
+        std::env::set_var("LOOP_MSP_WORKSPACE", "/tmp/scratch-ws");
+        assert_eq!(msp_workspace(), "/tmp/scratch-ws");
+        std::env::remove_var("LOOP_MSP_WORKSPACE");
+        let cwd = std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(msp_workspace(), cwd);
+    }
+
+    #[test]
+    fn wait_kill_reaps_fast_child() {
+        let child = std::process::Command::new("true")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let out = wait_kill(child, Duration::from_secs(5)).unwrap();
+        assert!(out.status.success());
+    }
+
+    #[test]
+    fn wait_kill_kills_hung_child() {
+        let child = std::process::Command::new("sleep")
+            .arg("30")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let err = wait_kill(child, Duration::from_millis(200)).unwrap_err();
+        assert!(err.contains("timed out"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn select_backend_prefers_explicit_setting() {
+        assert_eq!(select_backend("exec", false, false, false), "exec");
+        assert_eq!(select_backend("msp", true, false, true), "msp");
+        assert_eq!(select_backend("openrouter", false, false, false), "openrouter");
+        assert_eq!(select_backend("stub", false, true, true), "stub");
+        assert_eq!(select_backend("bogus", true, true, true), "stub");
+    }
+
+    #[test]
+    fn select_backend_auto_matches_env() {
+        assert_eq!(select_backend("", false, true, true), "msp");
+        assert_eq!(select_backend("", true, true, true), "msp");
+        assert_eq!(select_backend("", true, false, true), "exec");
+        assert_eq!(select_backend("", false, false, true), "openrouter");
+        assert_eq!(select_backend("", false, false, false), "stub");
     }
 }
 
