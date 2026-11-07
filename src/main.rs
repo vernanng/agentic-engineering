@@ -162,6 +162,7 @@ struct Config {
     jev_model: String,
     news_sources: Vec<String>,
     cheap_model: String,
+    backend: String,
 }
 impl Config {
     fn coding_enabled(&self) -> bool {
@@ -200,6 +201,7 @@ fn default_config() -> Config {
                 d
             }
         },
+        backend: String::new(),
     }
 }
 
@@ -215,6 +217,11 @@ fn validate_config_patch(patch: &Value) -> AppResult<Value> {
             "model" | "escalation_model" | "system_prompt" => {
                 if !v.is_string() {
                     return Err(format!("{k} must be a string"));
+                }
+            }
+            "backend" => {
+                if !["", "stub", "openrouter", "exec", "msp"].contains(&v.as_str().unwrap_or("\0")) {
+                    return Err("backend must be empty (auto), stub, openrouter, exec, or msp".into());
                 }
             }
             "max_tokens" => {
@@ -820,6 +827,27 @@ fn msp_workspace() -> String {
     }
 }
 
+fn select_backend(cfg_backend: &str, exec_env: bool, msp_env: bool, has_key: bool) -> &'static str {
+    if !cfg_backend.is_empty() {
+        // Explicit DB setting wins; unknown stored values fail closed to stub.
+        return match cfg_backend {
+            "openrouter" => "openrouter",
+            "exec" => "exec",
+            "msp" => "msp",
+            _ => "stub",
+        };
+    }
+    if msp_env {
+        "msp"
+    } else if exec_env {
+        "exec"
+    } else if has_key {
+        "openrouter"
+    } else {
+        "stub"
+    }
+}
+
 fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, f64, StepUsage)> {
     if text.contains("FAIL") {
         return Err("simulated step failure (FAIL in input)".into());
@@ -828,10 +856,14 @@ fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, 
     if !cfg.coding_enabled() {
         return Err("coding slice disabled (self-modification in effect)".into());
     }
-    let exec_backend = env_or("LOOP_EXEC_BACKEND", "") == "1";
-    let msp_backend = env_or("LOOP_MSP_BACKEND", "") == "1";
     let key = api_key();
-    if key.is_empty() && !exec_backend && !msp_backend {
+    let backend = select_backend(
+        &cfg.backend,
+        env_or("LOOP_EXEC_BACKEND", "") == "1",
+        env_or("LOOP_MSP_BACKEND", "") == "1",
+        !key.is_empty(),
+    );
+    if backend == "stub" {
         return Ok((
             format!(
                 "{step_name}: done for '{}'",
@@ -846,7 +878,7 @@ fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, 
     let prompt = format!("{}Do this step: {step_name}\nInput:\n{}\n\nReply with ONLY JSON: {{\"output\": \"<result>\", \"confidence\": <0.0-1.0>}}",
         if cfg.system_prompt.is_empty() { String::new() } else { format!("{}\n", cfg.system_prompt) },
         text.chars().take(limit).collect::<String>());
-    if msp_backend {
+    if backend == "msp" {
         let ws = msp_workspace();
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -856,7 +888,7 @@ fn run_step(step_name: &str, text: &str, confidence: f64) -> AppResult<(String, 
         let (out, conf) = parse_step_output("msp turn", &text)?;
         return Ok((out, conf, None));
     }
-    if exec_backend {
+    if backend == "exec" {
         let (out, conf) = exec_step(&prompt)?;
         return Ok((out, conf, None));
     }
@@ -2674,6 +2706,24 @@ mod turso_tests {
             .unwrap();
         let err = wait_kill(child, Duration::from_millis(200)).unwrap_err();
         assert!(err.contains("timed out"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn select_backend_prefers_explicit_setting() {
+        assert_eq!(select_backend("exec", false, false, false), "exec");
+        assert_eq!(select_backend("msp", true, false, true), "msp");
+        assert_eq!(select_backend("openrouter", false, false, false), "openrouter");
+        assert_eq!(select_backend("stub", false, true, true), "stub");
+        assert_eq!(select_backend("bogus", true, true, true), "stub");
+    }
+
+    #[test]
+    fn select_backend_auto_matches_env() {
+        assert_eq!(select_backend("", false, true, true), "msp");
+        assert_eq!(select_backend("", true, true, true), "msp");
+        assert_eq!(select_backend("", true, false, true), "exec");
+        assert_eq!(select_backend("", false, false, true), "openrouter");
+        assert_eq!(select_backend("", false, false, false), "stub");
     }
 }
 

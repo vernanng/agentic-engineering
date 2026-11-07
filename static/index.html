@@ -2,147 +2,89 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loop App — in &gt;&gt; near &gt;&gt; out</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 <style>
-  /* MD3 roles — components use roles, never raw hex below. */
-  :root{
-    --primary:#6750a4; --on-primary:#fff; --primary-container:#eaddff; --on-primary-container:#21005d;
-    --secondary-container:#e8def8; --on-secondary-container:#1d192b;
-    --tertiary-container:#ffd8e4; --on-tertiary-container:#31111d;
-    --surface:#fef7ff; --surface-variant:#e7e0ec; --on-surface:#1d1b20; --on-surface-variant:#49454f;
-    --outline:#79747e; --error:#b3261e; --on-error:#fff; --card:#f7f2fa;
-    --inverse-surface:#322f35; --inverse-on-surface:#f5eff7;
-  }
-  :root[data-theme="dark"]{
-    --primary:#d0bcff; --on-primary:#381e72; --primary-container:#4f378b; --on-primary-container:#eaddff;
-    --secondary-container:#4a4458; --on-secondary-container:#e8def8;
-    --tertiary-container:#633b48; --on-tertiary-container:#ffd8e4;
-    --surface:#141218; --surface-variant:#49454f; --on-surface:#e6e0e9; --on-surface-variant:#cac4d0;
-    --outline:#938f99; --error:#f2b8b5; --on-error:#601410; --card:#211f26;
-    --inverse-surface:#e6e0e9; --inverse-on-surface:#322f35;
-  }
-  *{box-sizing:border-box}
-  body{font-family:Roboto,system-ui,sans-serif;background:var(--surface);color:var(--on-surface);
-       max-width:920px;margin:0 auto;padding:24px 16px 48px;line-height:1.5}
-  h1{font-size:1.75rem;font-weight:500;margin:.2em 0}
-  h2{font-size:1.3rem;font-weight:500;margin:.2em 0 .6em}
-  h3{font-size:1rem;font-weight:600;margin:1em 0 .4em}
-  p,.card{color:var(--on-surface)} small,.muted{color:var(--on-surface-variant)}
-  .card{background:var(--card);border-radius:12px;padding:20px;margin:12px 0}
+  body{max-width:1440px;margin:0 auto;padding:24px 16px 48px}
+  .appbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--pico-background-color);padding:12px 0}
+  .appbar h1{margin:0} .muted{color:var(--pico-muted-color)}
   .badge{display:inline-block;font-size:.85rem;font-weight:600;border-radius:8px;padding:2px 10px;vertical-align:middle}
-  .in{background:var(--primary-container);color:var(--on-primary-container)}
-  .near{background:var(--secondary-container);color:var(--on-secondary-container)}
-  .out{background:var(--tertiary-container);color:var(--on-tertiary-container)}
-  button{font:inherit;font-size:.9rem;font-weight:600;border:0;border-radius:999px;min-height:40px;
-         padding:8px 16px;margin:.2rem;cursor:pointer;background:var(--secondary-container);color:var(--on-secondary-container)}
-  button:hover{box-shadow:0 1px 3px rgb(0 0 0/.3)}
-  button.filled{background:var(--primary);color:var(--on-primary)}
-  button.textbtn{background:transparent;color:var(--primary);padding:8px 12px}
-  button.danger{background:transparent;color:var(--error);padding:8px 12px}
-  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
-  input,select{font:inherit;color:var(--on-surface);background:var(--surface-variant);border:0;
-               border-bottom:1px solid var(--on-surface-variant);border-radius:8px 8px 0 0;min-height:48px;padding:8px 12px;margin:.2rem}
-  pre{background:var(--surface-variant);color:var(--on-surface);border-radius:12px;padding:12px;overflow:auto;max-height:240px}
-  code{background:var(--surface-variant);border-radius:4px;padding:0 4px}
-  #runs>div{padding:10px 0;border-bottom:1px solid var(--surface-variant)}
-  #runs>div:last-child{border-bottom:0}
-  #detail>div{background:var(--tertiary-container);color:var(--on-tertiary-container);border-radius:12px;padding:12px;margin:12px 0}
-  .appbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;
-          background:var(--surface);padding:12px 0}
-  .appbar h1{margin:0}
-  .theme{display:flex;align-items:center;gap:10px;font-size:.9rem;font-weight:600;color:var(--on-surface-variant)}
-  .switch{position:relative;width:52px;height:32px;flex:none;appearance:none;background:var(--surface-variant);
-          border:2px solid var(--outline);border-radius:999px;cursor:pointer;padding:0;min-height:32px}
-  .switch::after{content:"";position:absolute;top:6px;left:6px;width:16px;height:16px;border-radius:50%;background:var(--outline);transition:left .15s}
-  .switch:checked{background:var(--primary);border-color:var(--primary)}
-  .switch:checked::after{left:26px;background:var(--on-primary)}
-  .seg{display:inline-flex;margin:.4rem 0 .4rem .6rem;border:1px solid var(--outline);border-radius:999px;overflow:hidden;vertical-align:middle}
-  .seg button{margin:0;border-radius:0;min-height:40px;background:transparent;color:var(--on-surface);border-right:1px solid var(--outline)}
-  .seg button:last-child{border-right:0}
-  .seg button[aria-pressed="true"]{background:var(--secondary-container);color:var(--on-secondary-container)}
-  .seg button[aria-pressed="true"]::before{content:"✓ "}
-  .status{background:var(--surface-variant);color:var(--on-surface-variant)}
-  button.errfilled{background:var(--error);color:var(--on-error)}
-  label.field{font-size:.85rem;font-weight:600;color:var(--on-surface-variant);display:inline-block;margin:0 .3rem}
-  .progress{height:4px;border-radius:999px;background:var(--surface-variant);overflow:hidden;margin:8px 0}
-  .progress span{display:block;height:100%;width:40%;border-radius:999px;background:var(--primary);animation:slide 1.1s infinite}
-  @keyframes slide{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
-  #snack{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);z-index:5;max-width:min(92vw,560px);
-         background:var(--inverse-surface);color:var(--inverse-on-surface);border-radius:8px;padding:12px 18px;
-         font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+  .in{background:var(--pico-primary-background);color:var(--pico-on-primary,#fff)} .near{background:var(--pico-secondary-background);color:var(--pico-on-secondary,#fff)} .out{background:#ffd8e4;color:#31101d}
+  .status{background:var(--pico-muted-background,#e7e0ec)}
+  button.danger{background:transparent;border-color:transparent;color:var(--pico-del-color,#b3261e)}
+  button.errfilled{background:#b3261e;border-color:#b3261e;color:#fff}
+  .seg{display:inline-flex;margin:.4rem 0 .4rem .6rem;border:1px solid var(--pico-muted-border-color,#79747e);border-radius:999px;overflow:hidden;vertical-align:middle}
+  .seg button{margin:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:inherit}
+  .seg button + button{border-left:1px solid var(--pico-muted-border-color,#79747e)}
+  .seg button[aria-pressed="true"]{background:var(--pico-secondary-background)} .seg button[aria-pressed="true"]::before{content:"✓ "}
+  #snack{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);z-index:5;max-width:min(92vw,560px);background:var(--pico-card-background-color,#322f35);color:var(--pico-card-color,#f5eff7);border-radius:8px;padding:12px 18px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
   #snack.show{opacity:1;transform:translateX(-50%)}
-  dialog{background:var(--surface);color:var(--on-surface);border:0;border-radius:28px;padding:24px;max-width:min(92vw,420px)}
-  dialog::backdrop{background:rgb(0 0 0/.45)}
-  dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
-  @media (prefers-reduced-motion: reduce){ .progress span{animation:none;width:100%} .switch::after,#snack{transition:none} }
-  @media (max-width:600px){ input,select{width:100%;margin:.3rem 0} .seg{margin-left:0} }
-  /* Tiny Software Factory: lists left, focus center, agent right. */
-  body{max-width:1440px}
   .factory{display:grid;grid-template-columns:300px 1fr 320px;gap:16px;align-items:start}
   .factory main{min-width:0}
-  iframe.pageview{width:100%;min-height:260px;border:1px solid var(--outline);border-radius:12px;background:#fff}
-  textarea{font:inherit;color:var(--on-surface);background:var(--surface-variant);border:0;border-radius:8px;padding:8px 12px;margin:.2rem;width:100%}
-  @media (max-width:1000px){ .factory{grid-template-columns:1fr} }
+  iframe.pageview{width:100%;min-height:260px;border:1px solid var(--pico-muted-border-color);border-radius:12px;background:#fff}
+  dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  textarea{width:100%}
+  @media (max-width:1000px){.factory{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:reduce){#snack{transition:none}}
 </style>
 <script>
-  // Set theme before first paint: saved choice wins, else system preference.
   try { document.documentElement.dataset.theme =
-    localStorage.getItem("md3_theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    localStorage.getItem("loop_theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   } catch (e) { document.documentElement.dataset.theme = "light"; }
 </script>
 <header class="appbar">
   <h1>Loop App</h1>
   <span id="leverage" class="muted"></span>
-  <label class="theme">Token <input id="token" type="password" size="10" placeholder="X-Loop-Token" aria-label="API token"></label>
-  <label class="theme">Dark <input type="checkbox" class="switch" id="theme" aria-label="Dark theme"></label>
+  <span><input id="token" type="password" size="10" placeholder="X-Loop-Token" aria-label="API token">
+  <input type="checkbox" role="switch" id="theme" aria-label="Dark theme"></span>
 </header>
-<p><b>in-the-loop</b>: approve every step &nbsp; <b>near-the-loop</b>: auto, pauses on low-confidence / risky / failure &nbsp; <b>out-of-the-loop</b>: fully automatic, alerts on failure. Add <code>FAIL</code> to input to simulate a failure.</p>
-
+<p><b>in-the-loop</b>: approve every step &nbsp; <b>near-the-loop</b>: auto, pauses on low confidence / risky / failure &nbsp; <b>out-of-the-loop</b>: fully automatic, alerts on failure.</p>
+<article>
+  <h2>Prompt</h2>
+  <label>Task <select id="tt"></select></label>
+  <textarea id="input" rows="3" placeholder="type a prompt, then Run (or Ctrl+Enter) — the answer appears below, no rebuild needed"></textarea>
+  <button id="run-btn" onclick="submitRun()">Run</button>
+  <span id="follow" class="muted"></span>
+</article>
+<article><h2>Live run</h2><progress id="loadbar"></progress><div id="detail">Run a prompt above — this pane follows it live.</div></article>
+<article><h2>Runs</h2><div id="runs">loading…</div></article>
 <div class="factory">
 <aside>
   <div id="types"></div>
-  <div class="card"><h2>Crons</h2><div id="crons">loading…</div>
+  <article><h2>Crons</h2><div id="crons">loading…</div>
     <h3>New cron prompt</h3>
-    <label class="field">Name <input id="cron-name" size="14"></label>
-    <label class="field">Every (s) <input id="cron-s" type="number" value="3600" min="1" max="86400" size="6"></label>
-    <label class="field">Prompt <input id="cron-prompt" size="18" placeholder="uses selected Task"></label>
-    <button class="filled" onclick="createCron()">Add cron</button>
-  </div>
-  <div class="card"><h2>Pages</h2><div id="pages">loading…</div></div>
-  <div class="card"><h2>News feed</h2><div id="feed">no cards yet — run a news sweep</div></div>
+    <label>Name <input id="cron-name"></label>
+    <label>Every (s) <input id="cron-s" type="number" value="3600" min="1" max="86400"></label>
+    <label>Prompt <input id="cron-prompt" placeholder="uses selected Task"></label>
+    <button onclick="createCron()">Add cron</button>
+  </article>
+  <article><h2>Pages</h2><div id="pages">loading…</div></article>
+  <article><h2>News feed</h2><div id="feed">no cards yet — run a news sweep</div></article>
 </aside>
-<main>
-<div class="card">
-  <h2>New run</h2>
-  <label class="field">Task <select id="tt"></select></label>
-  <label class="field">Input <input id="input" placeholder="task input, e.g. quarterly numbers" size="32"></label>
-  <button class="filled" onclick="submitRun()">Run</button>
-</div>
-<div class="card"><h2>Runs</h2><div class="progress" id="loadbar"><span></span></div><div id="runs">loading…</div></div>
-<div class="card"><h2>Focus</h2><div id="detail">Click a run or a page.</div></div>
-</main>
+<main></main>
 <aside>
-  <div class="card"><h2>Agent</h2>
+  <article><h2>Agent</h2>
     <p class="muted">Durable agent, always on. Everything here has a matching tool in <code>/api/tools</code> — and the agent only changes config through a proposal you approve.</p>
     <h3>Core four</h3><div id="cfg">loading…</div>
-    <label class="field">Thinking <select id="thinking"><option>low</option><option>medium</option><option>high</option><option>max</option></select></label>
-    <button onclick="saveConfig()">Save thinking level</button>
+    <label>Thinking <select id="thinking"><option>low</option><option>medium</option><option>high</option><option>max</option></select></label>
+    <label>Backend <select id="backend"><option value="">auto (env)</option><option value="stub">stub (no model)</option><option value="openrouter">OpenRouter</option><option value="exec">exec (muse CLI, writes files)</option><option value="msp">MSP (muse serve)</option></select></label>
+    <label>Model <input id="model" size="18" placeholder="uses current unless changed"></label>
+    <button class="secondary" onclick="saveConfig()">Save settings</button>
     <h3>Executions</h3><div id="exec">loading…</div>
     <h3>Proposals</h3><div id="proposals">none</div>
     <h3>Tools</h3><div id="tools">loading…</div>
-  </div>
-  <div class="card"><h2>New page</h2>
-    <label class="field">Title <input id="page-title" size="18"></label>
+  </article>
+  <article><h2>New page</h2>
+    <label>Title <input id="page-title"></label>
     <textarea id="page-body" rows="5" placeholder="page HTML/markdown — the agent can edit this too"></textarea>
-    <button class="filled" onclick="createPage()">Create page</button>
-  </div>
+    <button onclick="createPage()">Create page</button>
+  </article>
 </aside>
 </div>
-
 <dialog id="killdlg">
   <h3>Kill this run?</h3>
   <p>The run stops where it is. This cannot be undone.</p>
   <div class="row">
-    <button class="textbtn" onclick="$('killdlg').close()">Cancel</button>
+    <button class="secondary" onclick="$('killdlg').close()">Cancel</button>
     <button class="errfilled" onclick="confirmKill()">Kill run</button>
   </div>
 </dialog>
@@ -150,16 +92,16 @@
   <h3>Delete this run?</h3>
   <p>The run, its steps, and its audit trail are permanently removed. This cannot be undone.</p>
   <div class="row">
-    <button class="textbtn" onclick="$('deldlg').close()">Cancel</button>
+    <button class="secondary" onclick="$('deldlg').close()">Cancel</button>
     <button class="errfilled" onclick="confirmDelete()">Delete run</button>
   </div>
 </dialog>
 <div id="snack" role="status" aria-live="polite"></div>
-
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let selected = null;
+let follow = false;
 async function api(path, opts) {
   const tok = localStorage.getItem("loop_token");
   opts = {...opts, headers: {...(opts && opts.headers), ...(tok ? {"X-Loop-Token": tok} : {})}};
@@ -169,47 +111,69 @@ async function api(path, opts) {
   return d;
 }
 const post = (path, obj) => api(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(obj || {})});
-
+// const/let never attach to window on their own — publish the helpers used
+// through `window.*` explicitly so overrides and callers resolve.
+Object.assign(window, { $, esc, api, post });
+// Every function below resolves through `window` at call time, and shared
+// state is exposed here, so any of them can be replaced live from the console
+// (e.g. `window.submitRun = async () => {...}`) with no rebuild.
+window.App = {
+  $, esc, api, post, refresh, load, snack, submitRun, selectRun, act,
+  decide, decideEdit, control, setMode, promote, createCron, deleteCron,
+  createPage, deletePage, selectPage, saveConfig, decideProposal, voteItem,
+  askKill, confirmKill, askDelete, confirmDelete,
+  get selected() { return selected; }, set selected(v) { selected = v; },
+  get follow() { return follow; }, set follow(v) { follow = v; },
+};
 async function refresh() {
   // Never leave the page stuck on "loading…": surface fetch errors (e.g. a missing API token) in place.
-  try { await load(); } catch (e) {
+  try { await window.load(); } catch (e) {
     $("loadbar").style.display = "none";
     if ($("runs").textContent.includes("loading")) $("runs").textContent = "could not load runs: " + e.message + " — enter the API token above.";
-    snack(String(e.message));
+    window.snack(String(e.message));
   }
 }
 async function load() {
-  const types = await api("/api/task-types");
+  // One batch, not nine serialized round-trips.
+  const [types, runs, crons, pages, cfg, props, manifest, feed, ex] = await Promise.all([
+    window.api("/api/task-types"),
+    window.api("/api/runs"),
+    window.api("/api/crons"),
+    window.api("/api/pages"),
+    window.api("/api/config"),
+    window.api("/api/proposals"),
+    window.api("/api/tools"),
+    window.api("/api/items?status=presented"),
+    window.api("/api/executions"),
+  ]);
   const prevTt = $("tt").value;
   $("tt").innerHTML = types.map(t => `<option value="${t.id}">${esc(t.name)} (${esc(t.template)}, ${esc(t.mode)})</option>`).join("");
   if ([...$("tt").options].some(o => o.value === prevTt)) $("tt").value = prevTt;
-  $("types").innerHTML = types.map(t => `<div class="card">
+  $("types").innerHTML = types.map(t => `<article>
     <b>${esc(t.name)}</b> <span class="badge ${esc(t.mode)}">${esc(t.mode)}-the-loop</span>
-    template=${esc(t.template)} · consecutive successes=${t.consecutive_success} · failures=${t.failures}
-    ${t.promotion_eligible ? `<button class="filled" onclick="promote(${t.id})">Promote to ${esc(t.next_mode)} &gt;&gt;</button>` : ""}
+    <br><small>template=${esc(t.template)} · consecutive successes=${t.consecutive_success} · failures=${t.failures}</small><br>
+    ${t.promotion_eligible ? `<button onclick="promote(${t.id})">Promote to ${esc(t.next_mode)} &gt;&gt;</button>` : ""}
     <span class="seg" role="group" aria-label="mode for ${esc(t.name)}">${["in","near","out"].map(m =>
       `<button aria-pressed="${t.mode === m}" onclick="setMode(${t.id},'${m}')">${m}</button>`).join("")}</span>
-  </div>`).join("");
-  const runs = await api("/api/runs");
+  </article>`).join("");
   $("loadbar").style.display = "none";
   $("runs").innerHTML = runs.map(r => `<div>#${r.id} task=${r.task_type_id} mode=${esc(r.mode)} <span class="badge status">${esc(r.status)}</span> input=${esc(JSON.stringify(r.input))}
-    <button class="textbtn" onclick="selectRun(${r.id})">view</button>
-    <button class="textbtn" onclick="control(${r.id},'pause')">pause</button><button class="textbtn" onclick="control(${r.id},'resume')">resume</button><button class="danger" onclick="askKill(${r.id})">kill</button><button class="danger" onclick="askDelete(${r.id})">delete</button></div>`).join("") || "no runs yet";
-  if (selected && document.activeElement?.id !== "edit") await selectRun(selected, true);
-  const crons = await api("/api/crons");
+    <button class="secondary" onclick="selectRun(${r.id})">view</button>
+    <button class="secondary" onclick="control(${r.id},'pause')">pause</button><button class="secondary" onclick="control(${r.id},'resume')">resume</button><button class="danger" onclick="askKill(${r.id})">kill</button><button class="danger" onclick="askDelete(${r.id})">delete</button></div>`).join("") || "no runs yet";
+  if (selected) {
+    // A viewed run deleted elsewhere must not freeze the rest of the page.
+    try { await window.selectRun(selected, true); }
+    catch (e) { selected = null; $("follow").textContent = ""; $("detail").innerHTML = "That run is gone — pick another."; }
+  }
   $("crons").innerHTML = crons.map(c => `<div>#${c.id} ${esc(c.name)} every ${c.schedule_s}s task=${c.task_type_id} <button class="danger" onclick="deleteCron(${c.id})">delete</button><br><small>${esc(c.prompt)}</small></div>`).join("") || "no crons yet";
-  const pages = await api("/api/pages");
-  $("pages").innerHTML = pages.map(p => `<div>${esc(p.title)} <small>by ${esc(p.created_by || "human")}</small> <button class="textbtn" onclick="selectPage(${p.id})">open</button><button class="danger" onclick="deletePage(${p.id})">delete</button></div>`).join("") || "no pages yet";
-  const cfg = await api("/api/config");
+  $("pages").innerHTML = pages.map(p => `<div>${esc(p.title)} <small>by ${esc(p.created_by || "human")}</small> <button class="secondary" onclick="selectPage(${p.id})">open</button><button class="danger" onclick="deletePage(${p.id})">delete</button></div>`).join("") || "no pages yet";
   $("cfg").innerHTML = `<small>context ≤ ${cfg.context_limit} chars · model ${esc(cfg.model)} → ${esc(cfg.escalation_model)} under ${cfg.conf_threshold} · slices: ${esc(cfg.enabled_slices.join(", "))}</small>`;
   if (document.activeElement?.id !== "thinking") $("thinking").value = cfg.thinking_level;
-  const props = await api("/api/proposals");
-  $("proposals").innerHTML = props.map(p => `<div>#${p.id} [${esc(p.status)}] <code>${esc(p.config)}</code>${p.status === "pending" ? ` <button class="filled" onclick="decideProposal(${p.id},'approve')">Approve</button><button class="danger" onclick="decideProposal(${p.id},'reject')">Reject</button>` : ""}</div>`).join("") || "none";
-  const manifest = await api("/api/tools");
+  $("backend").value = cfg.backend || "";
+  if (document.activeElement?.id !== "model") $("model").value = cfg.model;
+  $("proposals").innerHTML = props.map(p => `<div>#${p.id} [${esc(p.status)}] <code>${esc(p.config)}</code>${p.status === "pending" ? ` <button onclick="decideProposal(${p.id},'approve')">Approve</button><button class="danger" onclick="decideProposal(${p.id},'reject')">Reject</button>` : ""}</div>`).join("") || "none";
   $("tools").innerHTML = `<small>${manifest.tools.map(t => esc(t.name)).join(" · ")}</small>`;
-  const feed = await api("/api/items?status=presented");
-  $("feed").innerHTML = feed.map(i => `<div><b>${esc(i.title)}</b><br><small>Hype ${i.hype} · Facts ${i.facts} · Signal ${i.signal} · ${esc(i.source || "")}</small> <button class="textbtn" onclick="voteItem(${i.id},'up')">▲ up</button><button class="textbtn" onclick="voteItem(${i.id},'down')">▼ down</button></div>`).join("") || "no cards yet — run a news sweep";
-  const ex = await api("/api/executions");
+  $("feed").innerHTML = feed.map(i => `<div><b>${esc(i.title)}</b><br><small>Hype ${i.hype} · Facts ${i.facts} · Signal ${i.signal} · ${esc(i.source || "")}</small> <button class="secondary" onclick="voteItem(${i.id},'up')">▲ up</button><button class="secondary" onclick="voteItem(${i.id},'down')">▼ down</button></div>`).join("") || "no cards yet — run a news sweep";
   $("leverage").textContent = `agents working now: ${ex.agents_working_now}`;
   $("exec").innerHTML = `<small>jev calls ${ex.jev_calls} (mock ${ex.jev_mock_calls}) · jev cost $${ex.jev_cost.toFixed(5)} · step tokens ${ex.step_tokens} · runs ${esc(JSON.stringify(ex.runs_by_status))}</small>`;
 }
@@ -221,9 +185,66 @@ function snack(text) {
   clearTimeout(snackTimer);
   snackTimer = setTimeout(() => el.classList.remove("show"), 4000);
 }
+async function submitRun() {
+  // Prompt-first: the Live run pane follows this run until it finishes.
+  try {
+    const r = await window.post("/api/runs", {task_type_id: +$("tt").value, input: $("input").value});
+    selected = r.id; follow = true;
+    $("follow").textContent = `following run #${r.id}…`;
+    window.snack("Run #" + r.id + " started");
+    window.refresh();
+  } catch (e) { window.snack(e.message); }
+}
+async function selectRun(id, keep) {
+  selected = id;
+  const r = await window.api("/api/runs/" + id);
+  const waiting = r.steps.find(s => s.status === "awaiting_decision");
+  const answered = r.steps.filter(s => s.output);
+  const latest = answered[answered.length - 1];
+  $("detail").innerHTML = `<b>Run #${r.id}</b> mode=${esc(r.mode)} status=<b>${esc(r.status)}</b>
+    ${latest ? `<h4>Answer</h4><pre>${esc(latest.output)}</pre>` : ""}
+    ${waiting ? `<div>⏸ ${esc(waiting.name)}: ${esc(waiting.pause_reason || "")}
+      <input id="edit" placeholder="optional edited output" size="28">
+      <button onclick="decide(${r.id},'approve')">Approve</button>
+      <button class="secondary" onclick="decideEdit(${r.id})">Approve with edit</button>
+      <button class="danger" onclick="decide(${r.id},'reject')">Reject / kill</button></div>` : ""}
+    <pre>${esc(r.steps.map(s => `${s.idx}. ${s.name} [${s.status}] conf=${s.confidence} risky=${s.risky} ${s.output || ""}`).join("\n") || "no steps yet")}</pre>
+    <h3>Audit</h3><pre>${esc(r.audit.map(a => `${a.event} ${a.detail}`).join("\n"))}</pre>`;
+  if (follow && ["completed", "failed", "killed"].includes(r.status)) {
+    follow = false;
+    $("follow").textContent = "";
+    window.snack("Run #" + r.id + " " + r.status);
+  }
+}
+async function act(fn, ok) {
+  try { await fn(); window.snack(ok); window.refresh(); } catch (e) { window.snack(e.message); }
+}
+async function decide(id, action) { await window.act(() => window.post(`/api/runs/${id}/decide`, {action}), "Run #" + id + ": " + action); }
+async function decideEdit(id) { await window.act(() => window.post(`/api/runs/${id}/decide`, {action: "approve", edited_output: $("edit").value}), "Run #" + id + ": approved with edit"); }
+async function control(id, action) { await window.act(() => window.post(`/api/runs/${id}/control`, {action}), "Run #" + id + ": " + action); }
+async function setMode(id, mode) { await window.act(() => window.post(`/api/task-types/${id}/mode`, {mode}), "Mode set to " + mode + "-the-loop"); }
+async function promote(id) { await window.act(() => window.post(`/api/task-types/${id}/promote`, {}), "Promoted"); }
+async function createCron() { await window.act(() => window.post("/api/crons", {name: $("cron-name").value, schedule_s: +$("cron-s").value, prompt: $("cron-prompt").value, task_type_id: +$("tt").value}), "Cron added"); }
+async function deleteCron(id) { await window.act(() => window.api(`/api/crons/${id}`, {method: "DELETE"}), "Cron deleted"); }
+async function createPage() { await window.act(() => window.post("/api/pages", {title: $("page-title").value, body: $("page-body").value}), "Page created"); }
+async function deletePage(id) { await window.act(() => window.api(`/api/pages/${id}`, {method: "DELETE"}), "Page deleted"); }
+async function selectPage(id) {
+  selected = null; follow = false; $("follow").textContent = "";
+  const p = await window.api("/api/pages/" + id);
+  $("detail").innerHTML = `<b>${esc(p.title)}</b> <small>by ${esc(p.created_by || "human")}</small><iframe class="pageview" sandbox id="pageview"></iframe>`;
+  $("pageview").srcdoc = p.body || "";  // sandboxed: agent-written pages cannot script the app
+}
+async function saveConfig() {
+  const body = { backend: $("backend").value, thinking_level: $("thinking").value };
+  const m = $("model").value.trim();
+  if (m) body.model = m;
+  await window.act(() => window.api("/api/config", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)}), "Config saved");
+}
+async function decideProposal(id, action) { await window.act(() => window.post(`/api/proposals/${id}/decide`, {action}), "Proposal " + action); }
+async function voteItem(id, vote) { await window.act(() => window.post(`/api/items/${id}/vote`, {vote}), "Voted " + vote); }
 let killId = null;
 function askKill(id) { killId = id; $("killdlg").showModal(); }
-async function confirmKill() { $("killdlg").close(); if (killId !== null) await control(killId, "kill"); killId = null; }
+async function confirmKill() { $("killdlg").close(); if (killId !== null) await window.control(killId, "kill"); killId = null; }
 let delId = null;
 function askDelete(id) { delId = id; $("deldlg").showModal(); }
 async function confirmDelete() {
@@ -231,60 +252,25 @@ async function confirmDelete() {
   if (delId === null) return;
   const id = delId; delId = null;
   try {
-    await api(`/api/runs/${id}`, {method: "DELETE"});
+    await window.api(`/api/runs/${id}`, {method: "DELETE"});
     if (selected === id) { selected = null; $("detail").innerHTML = "Click a run."; }
-    snack("Run #" + id + " deleted");
-  } catch (e) { snack(e.message); }
-  refresh();
+    window.snack("Run #" + id + " deleted");
+  } catch (e) { window.snack(e.message); }
+  window.refresh();
 }
-async function submitRun() {
-  try { const r = await post("/api/runs", {task_type_id: +$("tt").value, input: $("input").value}); selected = r.id; snack("Run #" + r.id + " started"); refresh(); }
-  catch (e) { snack(e.message); }
-}
-async function selectRun(id, keep) {
-  selected = id;
-  const r = await api("/api/runs/" + id);
-  const waiting = r.steps.find(s => s.status === "awaiting_decision");
-  $("detail").innerHTML = `<b>Run #${r.id}</b> mode=${esc(r.mode)} status=<b>${esc(r.status)}</b>
-    ${waiting ? `<div>⏸ ${esc(waiting.name)}: ${esc(waiting.pause_reason || "")}
-      <input id="edit" placeholder="optional edited output" size="28">
-      <button class="filled" onclick="decide(${r.id},'approve')">Approve</button>
-      <button onclick="decideEdit(${r.id})">Approve with edit</button>
-      <button class="danger" onclick="decide(${r.id},'reject')">Reject / kill</button></div>` : ""}
-    <pre>${esc(r.steps.map(s => `${s.idx}. ${s.name} [${s.status}] conf=${s.confidence} risky=${s.risky} ${s.output || ""}`).join("\n") || "no steps yet")}</pre>
-    <h3>Audit</h3><pre>${esc(r.audit.map(a => `${a.event} ${a.detail}`).join("\n"))}</pre>`;
-}
-async function act(fn, ok) {
-  try { await fn(); snack(ok); refresh(); } catch (e) { snack(e.message); }
-}
-async function decide(id, action) { await act(() => post(`/api/runs/${id}/decide`, {action}), "Run #" + id + ": " + action); }
-async function decideEdit(id) { await act(() => post(`/api/runs/${id}/decide`, {action: "approve", edited_output: $("edit").value}), "Run #" + id + ": approved with edit"); }
-async function control(id, action) { await act(() => post(`/api/runs/${id}/control`, {action}), "Run #" + id + ": " + action); }
-async function setMode(id, mode) { await act(() => post(`/api/task-types/${id}/mode`, {mode}), "Mode set to " + mode + "-the-loop"); }
-async function promote(id) { await act(() => post(`/api/task-types/${id}/promote`, {}), "Promoted"); }
-async function createCron() { await act(() => post("/api/crons", {name: $("cron-name").value, schedule_s: +$("cron-s").value, prompt: $("cron-prompt").value, task_type_id: +$("tt").value}), "Cron added"); }
-async function deleteCron(id) { await act(() => api(`/api/crons/${id}`, {method: "DELETE"}), "Cron deleted"); }
-async function createPage() { await act(() => post("/api/pages", {title: $("page-title").value, body: $("page-body").value}), "Page created"); }
-async function deletePage(id) { await act(() => api(`/api/pages/${id}`, {method: "DELETE"}), "Page deleted"); }
-async function selectPage(id) {
-  selected = null;
-  const p = await api("/api/pages/" + id);
-  $("detail").innerHTML = `<b>${esc(p.title)}</b> <small>by ${esc(p.created_by || "human")}</small><iframe class="pageview" sandbox id="pageview"></iframe>`;
-  $("pageview").srcdoc = p.body || "";  // sandboxed: agent-written pages cannot script the app
-}
-async function saveConfig() { await act(() => api("/api/config", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({thinking_level: $("thinking").value})}), "Config saved"); }
-async function decideProposal(id, action) { await act(() => post(`/api/proposals/${id}/decide`, {action}), "Proposal " + action); }
-async function voteItem(id, vote) { await act(() => post(`/api/items/${id}/vote`, {vote}), "Voted " + vote); }
 $("theme").checked = document.documentElement.dataset.theme === "dark";
 $("theme").addEventListener("change", e => {
   document.documentElement.dataset.theme = e.target.checked ? "dark" : "light";
-  try { localStorage.setItem("md3_theme", document.documentElement.dataset.theme); } catch (err) {}
+  try { localStorage.setItem("loop_theme", document.documentElement.dataset.theme); } catch (err) {}
+});
+$("input").addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); submitRun(); }
 });
 $("token").value = localStorage.getItem("loop_token") || "";
 $("token").addEventListener("change", e => {
   try { localStorage.setItem("loop_token", e.target.value.trim()); } catch (err) {}
-  refresh();
+  window.refresh();
 });
-refresh();
-setInterval(refresh, 1500);
+window.refresh();
+setInterval(() => window.refresh(), 1000);
 </script>

@@ -317,6 +317,73 @@ fn gate() {
         );
         println!("exec backend ok");
     }
+    // Config-backed backend switch takes effect with no restart:
+    // stub -> exec -> stub on the same server instance.
+    {
+        let dbs = std::env::temp_dir().join(format!("gate-switch-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&dbs);
+        let _srv = boot(
+            dbs.to_str().unwrap(),
+            &[("MUSE_BIN", fake.to_str().unwrap())],
+        );
+        let cfg = call("GET", "/api/config", None, None);
+        assert_eq!(cfg["backend"], json!(""), "{cfg}");
+        let tt = call(
+            "POST",
+            "/api/task-types",
+            Some(json!({"name":"check-switch","template":"summarize","mode":"out"})),
+            Some(201),
+        );
+        let ttid = tt["id"].clone();
+        let step_output = |input: &str| -> String {
+            let run = call(
+                "POST",
+                "/api/runs",
+                Some(json!({"task_type_id": ttid, "input": input})),
+                Some(201),
+            );
+            let rid = run["id"].as_i64().unwrap();
+            let end = Instant::now() + Duration::from_secs(150);
+            loop {
+                if Instant::now() > end {
+                    panic!("run {rid} never completed");
+                }
+                let r = call("GET", &format!("/api/runs/{rid}"), None, None);
+                match r["status"].as_str() {
+                    Some("completed") => {
+                        return r["steps"][0]["output"].as_str().unwrap_or("").to_string()
+                    }
+                    Some("awaiting_decision") => {
+                        call(
+                            "POST",
+                            &format!("/api/runs/{rid}/decide"),
+                            Some(json!({"action": "approve"})),
+                            Some(200),
+                        );
+                    }
+                    Some("failed") | Some("killed") => {
+                        panic!("run {rid} ended {}: {r}", r["status"])
+                    }
+                    _ => std::thread::sleep(Duration::from_millis(500)),
+                }
+            }
+        };
+        let stub_out = step_output("probe 1");
+        assert!(stub_out.contains("done for"), "{stub_out}");
+        let cfg = call(
+            "PUT",
+            "/api/config",
+            Some(json!({"backend": "exec"})),
+            Some(200),
+        );
+        assert_eq!(cfg["backend"], json!("exec"), "{cfg}");
+        assert_eq!(step_output("probe 2"), "exec ok");
+        let cfg = call("PUT", "/api/config", Some(json!({"backend": ""})), Some(200));
+        assert_eq!(cfg["backend"], json!(""), "{cfg}");
+        let stub_out = step_output("probe 3");
+        assert!(stub_out.contains("done for"), "{stub_out}");
+        println!("backend switch ok");
+    }
     }
     // Exec backend failure (non-zero exit) fails the run with an alert, like
     // the FAIL hook does for the default backend.
